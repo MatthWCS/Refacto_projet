@@ -1,0 +1,17 @@
+mise en place de l'inventaire
+j'aimerai m'attaquer à l'inventaire et à l'ajout d'items dans celui-ci
+il faudra pouvoir proposer au joueur s'il veut le mettre dans son inventaire pour tout ce qui est divers et consommable,et pour ce qui est équipable s'il veut l'équiper ou le mettre dans son inventaire
+j'ai une table item qui regroupe l'ensemble des items qu'il est possible de trouver dans l'aventure ainsi qu'une table paragraph_item qui stock l'information du paragraph et l'item qui y correspond
+
+mise en place de l'ivresse
+
+drunkness decrease by 1 => 5 paragraph
+
+calcul de la nouvelle dexterity si drunkness > 0
+hero.dexterity = hero.dexterity / (Math.ceil(hero.drunkness/2))
+
+un menu “voir la fiche du héros” pendant l’aventure
+
+un affichage de l’inventaire dans un menu
+
+un système de consommation d’objets (potions, repas)

@@ -1,0 +1,154 @@
+import { db } from "../services/database.js";
+
+// -------------------------------------------------------
+// SaveModel
+// Responsabilité : persistance BDD de la progression
+//   (appelé côté serveur — user_id résolu depuis la session)
+// -------------------------------------------------------
+export class SaveModel {
+
+    // -------------------------------------------------------
+    // 1. Sauvegarder la progression
+    // -------------------------------------------------------
+
+    /**
+     * @param {number} user_id              - Résolu depuis la session HTTP
+     * @param {number} adventure_id
+     * @param {object} hero                 - Résultat de hero.serialize()
+     * @param {number} current_paragraph_id
+     * @param {string} [slot]
+     */
+    static async saveProgress(user_id, adventure_id, hero, current_paragraph_id, slot = "autosave") {
+
+        // 1.1 Upsert game_save
+        await db.query(
+            `INSERT INTO game_save (user_id, adventure_id, current_paragraph_id, slot_name)
+             VALUES (?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                 current_paragraph_id = VALUES(current_paragraph_id),
+                 updated_at           = NOW()`,
+            [user_id, adventure_id, current_paragraph_id, slot]
+        );
+
+        const [rows] = await db.query(
+            `SELECT id FROM game_save
+             WHERE user_id = ? AND adventure_id = ? AND slot_name = ?`,
+            [user_id, adventure_id, slot]
+        );
+        const save_id = rows[0].id;
+
+        // 1.2 Upsert hero
+        await db.query(
+            `INSERT INTO hero
+                 (save_id, dexterity, initial_dexterity, endurance, initial_endurance,
+                  luck, initial_luck, drunkness)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                 dexterity = VALUES(dexterity),
+                 endurance = VALUES(endurance),
+                 luck      = VALUES(luck),
+                 drunkness = VALUES(drunkness)`,
+            [
+                save_id,
+                hero.dexterity, hero.initial_dexterity,
+                hero.endurance, hero.initial_endurance,
+                hero.luck, hero.initial_luck,
+                hero.drunkness
+            ]
+        );
+
+        // 1.3 Inventaire (delete + re-insert)
+        await db.query(`DELETE FROM hero_inventory WHERE save_id = ?`, [save_id]);
+        for (const item of hero.inventory) {
+            await db.query(
+                `INSERT INTO hero_inventory (save_id, item_id, quantity, is_equipped)
+                 VALUES (?, ?, ?, ?)`,
+                [save_id, item.item_id, item.quantity, item.is_equipped]
+            );
+        }
+
+        // 1.4 Flags
+        await db.query(`DELETE FROM hero_flag WHERE save_id = ?`, [save_id]);
+        for (const flag_id of hero.flags) {
+            await db.query(
+                `INSERT INTO hero_flag (save_id, flag_id) VALUES (?, ?)`,
+                [save_id, flag_id]
+            );
+        }
+
+        // 1.5 États
+        await db.query(`DELETE FROM hero_state WHERE save_id = ?`, [save_id]);
+        for (const state of hero.states) {
+            await db.query(
+                `INSERT INTO hero_state
+                     (save_id, state_id, remaining_duration, source_type, source_type_id)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [
+                    save_id,
+                    state.state_id,
+                    state.remaining_duration ?? null,
+                    state.source_type ?? null,
+                    state.source_type_id ?? null
+                ]
+            );
+        }
+
+        return { success: true };
+    }
+
+    // -------------------------------------------------------
+    // 2. Charger la progression
+    // -------------------------------------------------------
+
+    /**
+     * @param {number} user_id
+     * @param {number} adventure_id
+     * @param {string} [slot]
+     * @returns {Promise<{ hero: object, current_paragraph_id: number } | null>}
+     */
+    static async loadProgress(user_id, adventure_id, slot = "autosave") {
+
+        const [saveRows] = await db.query(
+            `SELECT id, current_paragraph_id FROM game_save
+             WHERE user_id = ? AND adventure_id = ? AND slot_name = ?`,
+            [user_id, adventure_id, slot]
+        );
+
+        if (!saveRows[0]) return null;
+
+        const save_id = saveRows[0].id;
+        const current_paragraph_id = saveRows[0].current_paragraph_id;
+
+        // Hero
+        const [heroRows] = await db.query(
+            `SELECT * FROM hero WHERE save_id = ?`,
+            [save_id]
+        );
+        if (!heroRows[0]) return null;
+        const hero = heroRows[0];
+
+        // Inventaire
+        const [invRows] = await db.query(
+            `SELECT item_id, quantity, is_equipped FROM hero_inventory WHERE save_id = ?`,
+            [save_id]
+        );
+        hero.inventory = invRows;
+
+        // Flags
+        const [flagRows] = await db.query(
+            `SELECT flag_id FROM hero_flag WHERE save_id = ?`,
+            [save_id]
+        );
+        hero.flags = flagRows.map(r => r.flag_id);
+
+        // États
+        const [stateRows] = await db.query(
+            `SELECT state_id, remaining_duration, source_type, source_type_id
+             FROM hero_state WHERE save_id = ?`,
+            [save_id]
+        );
+        hero.states = stateRows;
+
+        return { hero, current_paragraph_id };
+    }
+}

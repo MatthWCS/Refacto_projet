@@ -1,0 +1,10 @@
+@use './variables' as *;
+
+#page_main_content {
+    min-height: 70vh;
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: center;
+    padding: 3rem;
+    background-color: $primaryColor;
+}

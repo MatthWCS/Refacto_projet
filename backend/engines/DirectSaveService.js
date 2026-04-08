@@ -48,6 +48,19 @@ export class DirectSaveService {
     }
 
     /**
+     * Efface la sauvegarde.
+     * @param {string} [slot]
+     */
+    async clear(slot = "autosave") {
+        try {
+            await SaveModel.clearProgress(this.userId, this.adventureId, slot);
+            this.logger.debug(`Sauvegarde effacée — slot "${slot}"`);
+        } catch (err) {
+            this.logger.error("Erreur lors de l'effacement :", err);
+        }
+    }
+
+    /**
      * @param {string} [slot]
      * @returns {Promise<object|null>}
      */

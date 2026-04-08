@@ -23,7 +23,7 @@ export class Hero {
     } = {}) {
         this.name = name;
 
-        // Valeurs initiales (plafond pour le clamping)
+        // Valeurs initiales
         this.initial_dexterity = initial_dexterity ?? 0;
         this.initial_endurance = initial_endurance ?? 0;
         this.initial_luck = initial_luck ?? 0;

@@ -13,3 +13,4 @@ export const saveRoutes = Router();
 
 saveRoutes.post("/gamesave", isAuthenticated, SaveController.save);
 saveRoutes.get("/load", isAuthenticated, SaveController.load);
+// saveRoutes.delete("/clear", isAuthenticated, SaveController.clear);

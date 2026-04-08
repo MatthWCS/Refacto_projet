@@ -48,21 +48,23 @@ export class CombatEngine {
             }
         });
 
-        // Règles par monstre
+        // Règles par monstre — source unique de vérité
+        // (les règles sont stockées dans monster.rules depuis _loadMonsters)
         monsters.forEach(monster => {
             monster.rules?.forEach(rule => {
-                this.applyPreCombatRule(rule, monster, monsters);
+                this._applyPreCombatRule(rule, monster, monsters);
             });
         });
 
-        // Règles globales du combat
+        // Règles globales — réservé aux règles non liées à un monster spécifique
+        // (ex: règles injectées programmatiquement, pas depuis la BDD)
         rules.forEach(rule => {
-            this.applyPreCombatRule(rule, null, monsters);
+            this._applyPreCombatRule(rule, null, monsters);
         });
     }
 
     /** @private */
-    applyPreCombatRule(rule, monster, allMonsters) {
+    _applyPreCombatRule(rule, monster, allMonsters) {
         switch (rule.rule_type) {
 
             case "multi_enemy_behavior":
@@ -91,6 +93,20 @@ export class CombatEngine {
                     this.logger.info(`Malus de compétence appliqué : -${rule.params.amount} DEX`);
                 }
                 break;
+
+            case "skill_penalty_unless_any_item": {
+                // Malus annulé si le héros possède AU MOINS UN des items listés
+                const itemIds = rule.params.item_ids ?? [];
+                const hasAny = itemIds.some(id => this.heroEngine.hasItem(id));
+                if (!hasAny) {
+                    this.heroEngine.modifyAttribute("dexterity", "subtract", rule.params.amount);
+                    this.logger.info(`Malus de compétence appliqué : -${rule.params.amount} DEX`);
+                } else {
+                    const found = itemIds.find(id => this.heroEngine.hasItem(id));
+                    this.logger.info(`Malus annulé — item protecteur possédé (id: ${found})`);
+                }
+                break;
+            }
 
             default:
                 this.logger.debug(`Règle pré-combat inconnue ignorée : ${rule.rule_type}`);
@@ -121,7 +137,7 @@ export class CombatEngine {
 
         // 2) Dégâts héros → ennemis ciblés
         result.heroTargets.forEach(id => {
-            const target = this.findMonster(monsters, id);
+            const target = this._findMonster(monsters, id);
             if (target) {
                 target.endurance = Math.max(0, target.endurance - BASE_DAMAGE);
                 this.logger.debug(`${target.name} perd ${BASE_DAMAGE} END → reste ${target.endurance}`);
@@ -131,7 +147,7 @@ export class CombatEngine {
         // 3) Dégâts bonus Chance → mêmes cibles
         if (result.extraDamage) {
             result.heroTargets.forEach(id => {
-                const target = this.findMonster(monsters, id);
+                const target = this._findMonster(monsters, id);
                 if (target) {
                     target.endurance = Math.max(0, target.endurance - result.extraDamage);
                     this.logger.debug(`Bonus Chance sur ${target.name} : ${result.extraDamage} END`);
@@ -141,7 +157,7 @@ export class CombatEngine {
 
         // 4) Dégâts alliés → ennemis
         result.alliesHits.forEach(hit => {
-            const target = this.findMonster(monsters, hit.enemyId);
+            const target = this._findMonster(monsters, hit.enemyId);
             if (target) {
                 target.endurance = Math.max(0, target.endurance - BASE_DAMAGE);
                 this.logger.debug(`Allié touche ${target.name} : -${BASE_DAMAGE} END`);
@@ -150,12 +166,12 @@ export class CombatEngine {
 
         // 5) Règles spéciales
         rules.forEach(rule => {
-            this.applySpecialRule(rule, result, round, monsters);
+            this._applySpecialRule(rule, result, round, monsters);
         });
     }
 
     /** @private */
-    applySpecialRule(rule, result, round, monsters) {
+    _applySpecialRule(rule, result, round, monsters) {
         switch (rule.rule_type) {
 
             case "damage_on_hit":
@@ -175,7 +191,7 @@ export class CombatEngine {
 
             case "conditional_damage":
                 if (result.charactersHitHero > 0) {
-                    const dmg = this.resolveConditionalDamage(rule);
+                    const dmg = this._resolveConditionalDamage(rule);
                     this.heroEngine.modifyAttribute("endurance", "subtract", dmg);
                     this.logger.info(`conditional_damage : -${dmg} END`);
                 }
@@ -205,21 +221,9 @@ export class CombatEngine {
 
             case "conditional_damage_override":
                 if (result.charactersHitHero > 0) {
-                    const dmg = this.resolveConditionalDamageOverride(rule);
+                    const dmg = this._resolveConditionalDamageOverride(rule);
                     this.heroEngine.modifyAttribute("endurance", "subtract", dmg);
                     this.logger.info(`conditional_damage_override : -${dmg} END`);
-                }
-                break;
-
-            case "per_win_assault_damage":
-                let characterHitHeroCount = 0
-                const amount = rule.params.amount ?? 1;
-
-                if (result.charactersHitHero > 0) {
-                    characterHitHeroCount++;
-                    const dmgPerWinAssault = characterHitHeroCount * amount;
-                    this.heroEngine.modifyAttribute("endurance", "subtract", dmgPerWinAssault);
-                    this.logger.info(`per_win_assault_damage : -${dmgPerWinAssault} END`);
                 }
                 break;
 
@@ -266,22 +270,39 @@ export class CombatEngine {
     // 4. FUITE
     // -------------------------------------------------------
 
-    /** @returns {boolean} */
-    canFlee(rules) {
+    /**
+     * @param {object[]} rules   - règles globales (peut être vide)
+     * @param {object[]} [monsters] - monsters du combat (pour lire monster.rules)
+     * @returns {boolean}
+     */
+    canFlee(rules, monsters = []) {
         if (this._noFlee) return false;
 
-        if (rules.some(r =>
+        // Rassembler toutes les règles : globales + par monster
+        const allRules = [
+            ...rules,
+            ...monsters.flatMap(m => m.rules ?? [])
+        ];
+
+        if (allRules.some(r =>
             r.rule_type === "combat_behavior" && r.params?.value === "no_flee"
         )) return false;
 
-        return rules.some(r =>
+        return allRules.some(r =>
             r.rule_type === "combat_behavior" && r.params?.value === "can_flee"
         );
     }
 
-    /** @param {object[]} rules */
-    applyFleePenalty(rules) {
-        rules.forEach(rule => {
+    /**
+     * @param {object[]} rules    - règles globales
+     * @param {object[]} [monsters]
+     */
+    applyFleePenalty(rules, monsters = []) {
+        const allRules = [
+            ...rules,
+            ...monsters.flatMap(m => m.rules ?? [])
+        ];
+        allRules.forEach(rule => {
             if (rule.rule_type === "flee_penalty") {
                 this.heroEngine.modifyAttribute("endurance", "subtract", rule.params.amount);
                 this.logger.info(`Pénalité de fuite : -${rule.params.amount} END`);
@@ -361,7 +382,7 @@ export class CombatEngine {
         }
 
         // Le héros ne touche que sa cible choisie, et seulement si son
-        // attaque est supérieure à l'attaque de cette cible.
+        // attaque est supérieure à l'attaque de cette cible
         if (chosenTargetId !== null) {
             const chosenEntry = getEntry(chosenTargetId);
             const chosenMonster = monsters.find(m => m.id === chosenTargetId);
@@ -431,18 +452,18 @@ export class CombatEngine {
 
             // Phase interactive : l'UI peut modifier damagePerHit / extraDamage
             if (io) {
-                const shouldFlee = await io.onRoundResolved(result, round, this, rules);
+                const shouldFlee = await io.onRoundResolved(result, round, this, rules, monsters);
                 if (shouldFlee) {
-                    this.applyFleePenalty(rules);
+                    this.applyFleePenalty(rules, monsters);
                     return { outcome: "fled", log };
                 }
             }
 
             this.applyDuringCombatRules(result, rules, round, monsters);
 
-            log.push(this.buildLogEntry(result, round, monsters));
+            log.push(this._buildLogEntry(result, round, monsters));
 
-            // Re-choix si la cible vient de mourir et qu'il reste des ennemis
+            // Rechoix si la cible vient de mourir et qu'il reste des ennemis
             const chosenMonster = monsters.find(m => m.id === chosenTargetId);
             if (io && chosenMonster?.endurance <= 0 && enemies().length > 0) {
                 if (enemies().length === 1) {
@@ -477,20 +498,20 @@ export class CombatEngine {
     // -------------------------------------------------------
 
     /** @private */
-    findMonster(monsters, id) {
+    _findMonster(monsters, id) {
         const m = monsters.find(m => m.id === id);
         if (!m) this.logger.warn(`Monster introuvable : id=${id}`);
         return m ?? null;
     }
 
     /** @private */
-    resolveConditionalDamage(rule) {
+    _resolveConditionalDamage(rule) {
         // Extensible : lire rule.params pour choisir la valeur
         return rule.params?.amount ?? BASE_DAMAGE;
     }
 
     /** @private */
-    resolveConditionalDamageOverride(rule) {
+    _resolveConditionalDamageOverride(rule) {
         const baseDamage = rule.params?.base ?? 4;
         const luckyDamage = rule.params?.lucky ?? 2;
         const unluckyDamage = rule.params?.unlucky ?? 6;
@@ -513,7 +534,7 @@ export class CombatEngine {
     }
 
     /** @private */
-    buildLogEntry(result, round, monsters) {
+    _buildLogEntry(result, round, monsters) {
         return {
             round,
             heroAttack: result.heroAttack,

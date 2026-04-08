@@ -1,14 +1,17 @@
 import { db } from "../services/database.js";
 
-// -------------------------------------------------------
-// ConditionModel
-// Responsabilité : accès BDD aux conditions et normalisation
-// -------------------------------------------------------
 export class ConditionModel {
 
     // -------------------------------------------------------
-    // 1. Récupérer une condition par ID
+    //  Toutes les conditions (éditeur)
     // -------------------------------------------------------
+    static async getAll() {
+        const [rows] = await db.query(
+            `SELECT * FROM \`condition\` ORDER BY id ASC`
+        );
+        return rows.map(c => this.normalize(c));
+    }
+
     static async findById(conditionId) {
         const [rows] = await db.query(
             `SELECT * FROM \`condition\` WHERE id = ?`,
@@ -18,7 +21,7 @@ export class ConditionModel {
     }
 
     // -------------------------------------------------------
-    // 2. Récupérer plusieurs conditions par IDs
+    //  Récupérer plusieurs conditions par IDs
     // -------------------------------------------------------
     static async findByIds(conditionIds) {
         if (!conditionIds?.length) return [];
@@ -31,7 +34,7 @@ export class ConditionModel {
     }
 
     // -------------------------------------------------------
-    // 3. Conditions d'un choix
+    //  Conditions d'un choix
     // -------------------------------------------------------
     static async findForChoice(choiceId) {
         const [rows] = await db.query(
@@ -45,7 +48,7 @@ export class ConditionModel {
     }
 
     // -------------------------------------------------------
-    // 4. Conditions d'un effet
+    //  Conditions d'un effet
     // -------------------------------------------------------
     static async findForEffect(effectId) {
         const [rows] = await db.query(
@@ -58,15 +61,7 @@ export class ConditionModel {
         return rows.map(c => this.normalize(c));
     }
 
-    // -------------------------------------------------------
-    // 5. Toutes les conditions (éditeur)
-    // -------------------------------------------------------
-    static async getAll() {
-        const [rows] = await db.query(
-            `SELECT * FROM \`condition\` ORDER BY id ASC`
-        );
-        return rows.map(c => this.normalize(c));
-    }
+
 
     // -------------------------------------------------------
     // Normalisation — format compatible ConditionEngine.evaluateSQL()

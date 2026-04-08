@@ -1,18 +1,18 @@
-import { Hero }            from "./hero/Hero.js";
-import { HeroFactory }     from "./HeroFactory.js";
+import { Hero } from "./hero/Hero.js";
+import { HeroFactory } from "./HeroFactory.js";
 
-import { HeroEngine }      from "./hero/HeroEngine.js";
+import { HeroEngine } from "./hero/HeroEngine.js";
 import { InventoryEngine } from "./hero/InventoryEngine.js";
 import { ConditionEngine } from "./hero/ConditionEngine.js";
-import { EffectEngine }    from "./hero/EffectEngine.js";
-import { StateEngine }     from "./hero/StateEngine.js";
-import { CombatEngine }    from "./CombatEngine.js";
+import { EffectEngine } from "./hero/EffectEngine.js";
+import { StateEngine } from "./hero/StateEngine.js";
+import { CombatEngine } from "./CombatEngine.js";
 import { ParagraphEngine } from "./ParagraphEngine.js";
-import { SaveService }     from "./SaveService.js";
+import { SaveService } from "./SaveService.js";
 
-import { ParagraphModel }  from "../models/ParagraphModel.js";
-import { ItemModel }       from "../models/ItemModel.js";
-import { StateModel }      from "../models/StateModel.js";
+import { ParagraphModel } from "../models/ParagraphModel.js";
+import { ItemModel } from "../models/ItemModel.js";
+import { StateModel } from "../models/StateModel.js";
 
 import { Logger, LogLevel } from "./Logger.js";
 
@@ -35,29 +35,29 @@ export class GameEngine {
      *   de façon interactive sans monkey-patching extérieur.
      */
     constructor({
-                    ui,
-                    adventureId   = 1,
-                    logger        = new Logger(LogLevel.INFO, "[GameEngine]"),
-                    onBeforeStart = null,
-                    saveService   = null        // injecté depuis l'extérieur ; défaut = SaveService HTTP
-                } = {}) {
-        this.ui             = ui;
-        this.adventureId    = adventureId;
-        this.logger         = logger;
-        this.onBeforeStart  = onBeforeStart;
+        ui,
+        adventureId = 1,
+        logger = new Logger(LogLevel.INFO, "[GameEngine]"),
+        onBeforeStart = null,
+        saveService = null        // injecté depuis l'extérieur ; défaut = SaveService HTTP
+    } = {}) {
+        this.ui = ui;
+        this.adventureId = adventureId;
+        this.logger = logger;
+        this.onBeforeStart = onBeforeStart;
 
-        this.hero            = null;
-        this.heroEngine      = null;
+        this.hero = null;
+        this.heroEngine = null;
         this.conditionEngine = null;
-        this.stateEngine     = null;
-        this.effectEngine    = null;
+        this.stateEngine = null;
+        this.effectEngine = null;
         this.inventoryEngine = null;
-        this.combatEngine    = null;
+        this.combatEngine = null;
         this.paragraphEngine = null;
-        this.saveService     = saveService ?? new SaveService(adventureId, logger);
+        this.saveService = saveService ?? new SaveService(adventureId, logger);
 
         this.currentParagraphId = null;
-        this.isGameOver         = false;
+        this.isGameOver = false;
     }
 
     // -------------------------------------------------------
@@ -107,14 +107,14 @@ export class GameEngine {
         );
 
         this.paragraphEngine = new ParagraphEngine({
-            paragraphModel:  ParagraphModel,
-            heroEngine:      this.heroEngine,
+            paragraphModel: ParagraphModel,
+            heroEngine: this.heroEngine,
             inventoryEngine: this.inventoryEngine,
-            effectEngine:    this.effectEngine,
+            effectEngine: this.effectEngine,
             conditionEngine: this.conditionEngine,
-            stateEngine:     this.stateEngine,
-            combatEngine:    this.combatEngine,
-            logger:          this.logger
+            stateEngine: this.stateEngine,
+            combatEngine: this.combatEngine,
+            logger: this.logger
         });
 
         this.logger.info("Engines initialisés.");
@@ -127,8 +127,8 @@ export class GameEngine {
     /** @param {number} [startParagraphId] */
     async start(startParagraphId = 0) {
 
-        const save    = await this.saveService.load();
-        this.hero     = save ? new Hero(save.hero) : HeroFactory.createNewHero("Héros");
+        const save = await this.saveService.load();
+        this.hero = save ? new Hero(save.hero) : HeroFactory.createNewHero("Héros");
 
         await this._initEngines();
 
@@ -154,11 +154,17 @@ export class GameEngine {
 
         const result = await this.paragraphEngine.resolveParagraph(paragraphId);
 
-        // Game Over
+        // Game Over (mort en combat)
         if (result.gameOver) {
             this.isGameOver = true;
             if (result.log) this.ui.renderCombatResult?.(result);
             this.ui.renderGameOver(this.heroEngine.hero);
+            return;
+        }
+
+        // Fin de l'aventure (succès ou échec narratif)
+        if (result.ending) {
+            await this._handleEnding(result);
             return;
         }
 
@@ -173,6 +179,7 @@ export class GameEngine {
             }
             if (result.testResult) {
                 this.ui.renderTestResult?.(result.testResult);
+                await this.ui.waitForInput?.();
             }
             if (result.log) {
                 this.ui.renderCombatResult?.(result);
@@ -180,7 +187,7 @@ export class GameEngine {
             // Items du paragraphe intermédiaire (butin de combat, etc.)
             if (result.items?.length && this.ui.handleItemPickup) {
                 const context = {
-                    inCombat:  false,
+                    inCombat: false,
                     surprised: false
                 };
                 for (const item of result.items) {
@@ -207,7 +214,7 @@ export class GameEngine {
         // Items du paragraphe — affichés APRÈS le texte du paragraphe
         if (result.items?.length && this.ui.handleItemPickup) {
             const context = {
-                inCombat:  false,
+                inCombat: false,
                 surprised: this.stateEngine.hasState(9)
             };
             for (const item of result.items) {
@@ -226,7 +233,46 @@ export class GameEngine {
     }
 
     // -------------------------------------------------------
-    // 3b. IVRESSE — décrément tous les 5 paragraphes narratifs
+    // 3b. FIN DE L'AVENTURE
+    // -------------------------------------------------------
+
+    /** @private */
+    async _handleEnding(result) {
+        // Afficher le contenu du paragraphe de fin
+        this.ui.renderParagraph(result, this.heroEngine.hero);
+
+        // Items éventuels (rare mais possible)
+        if (result.items?.length && this.ui.handleItemPickup) {
+            for (const item of result.items) {
+                await this.ui.handleItemPickup(item, this.inventoryEngine, {});
+            }
+        }
+
+        // Afficher le message de fin
+        this.ui.renderEnding(result.endingType);
+
+        // Sauvegarder l'état final
+        this.currentParagraphId = result.paragraphId;
+        await this.saveService.save(
+            this.heroEngine.hero.serialize(),
+            this.currentParagraphId
+        );
+
+        // Proposer rejouer ou quitter
+        const choice = await this.ui.askEndingChoice();
+
+        if (choice === "replay") {
+            // Effacer la sauvegarde et relancer depuis le début
+            await this.saveService.clear?.();
+            await this.start(0);
+        } else {
+            // Quitter
+            this.ui.close?.();
+        }
+    }
+
+    // -------------------------------------------------------
+    // 3c. IVRESSE — décrément tous les 5 paragraphes narratifs
     // -------------------------------------------------------
 
     /** @private */

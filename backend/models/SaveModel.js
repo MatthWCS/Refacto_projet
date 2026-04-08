@@ -151,4 +151,42 @@ export class SaveModel {
 
         return { hero, current_paragraph_id };
     }
+
+    // -------------------------------------------------------
+    // 3. Effacer la progression
+    // -------------------------------------------------------
+
+    /**
+     * Supprime la sauvegarde et toutes les données associées.
+     * Nécessite ON DELETE CASCADE sur save_id dans hero_inventory,
+     * hero_flag et hero_state — sinon les lignes orphelines restent.
+     *
+     * @param {number} user_id
+     * @param {number} adventure_id
+     * @param {string} [slot]
+     */
+    static async clearProgress(user_id, adventure_id, slot = "autosave") {
+
+        // Récupérer le save_id pour supprimer les données liées
+        // si CASCADE n'est pas configuré en BDD
+        const [rows] = await db.query(
+            `SELECT id FROM game_save
+             WHERE user_id = ? AND adventure_id = ? AND slot_name = ?`,
+            [user_id, adventure_id, slot]
+        );
+
+        if (!rows[0]) return { success: true }; // rien à effacer
+
+        const save_id = rows[0].id;
+
+        // Supprimer les données liées explicitement
+        // (sécurisé même sans CASCADE)
+        await db.query(`DELETE FROM hero_inventory WHERE save_id = ?`, [save_id]);
+        await db.query(`DELETE FROM hero_flag      WHERE save_id = ?`, [save_id]);
+        await db.query(`DELETE FROM hero_state     WHERE save_id = ?`, [save_id]);
+        await db.query(`DELETE FROM hero           WHERE save_id = ?`, [save_id]);
+        await db.query(`DELETE FROM game_save      WHERE id = ?`, [save_id]);
+
+        return { success: true };
+    }
 }

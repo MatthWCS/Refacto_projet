@@ -44,13 +44,13 @@ export class CombatUI {
      * @param {object[]}    rules
      * @returns {Promise<boolean>} true si le joueur fuit
      */
-    async onRoundResolved(result, round, engine, rules) {
+    async onRoundResolved(result, round, engine, rules, monsters = []) {
 
-        this.printRoundHeader(result, round, engine);
+        this._printRoundHeader(result, round, engine);
 
-        await this.handleLuck(result, engine);
+        await this._handleLuck(result, engine);
 
-        return await this.handleFleeChoice(engine, rules);
+        return await this._handleFleeChoice(engine, rules, monsters);
     }
 
     // -------------------------------------------------------
@@ -58,7 +58,7 @@ export class CombatUI {
     // -------------------------------------------------------
 
     /** @private */
-    printRoundHeader(result, round, engine) {
+    _printRoundHeader(result, round, engine) {
         const hero = engine.heroEngine.hero;
 
         this.logger.info(`\n===== ROUND ${round} =====`);
@@ -92,7 +92,7 @@ export class CombatUI {
     // -------------------------------------------------------
 
     /** @private */
-    async handleLuck(result, engine) {
+    async _handleLuck(result, engine) {
         const hero = engine.heroEngine.hero;
         const luckChoice = await this.io.askLuckUsage(result);
 
@@ -131,8 +131,8 @@ export class CombatUI {
     // -------------------------------------------------------
 
     /** @private */
-    async handleFleeChoice(engine, rules) {
-        const canFlee = engine.canFlee(rules);
+    async _handleFleeChoice(engine, rules, monsters = []) {
+        const canFlee = engine.canFlee(rules, monsters);
         const choice = await this.io.askContinueOrFlee(canFlee);
 
         if (choice === "flee") {
@@ -145,5 +145,5 @@ export class CombatUI {
 }
 
 // Constantes partagées avec CombatEngine (même sémantique)
-const LUCKY_DAMAGE_BONUS = 1;
+const LUCKY_DAMAGE_BONUS = 2;
 const UNLUCKY_DAMAGE_MOD = 1;

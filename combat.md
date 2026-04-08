@@ -40,7 +40,7 @@ Juste après ton `io = { ask, showRound }`, tu ajoutes :
 
 ```js
 io.askLuckUsage = async function (result) {
-    console.log("\n🎲 Souhaites-tu utiliser la Chance ?");
+    console.log("\n Souhaites-tu utiliser la Chance ?");
     console.log("1. Non");
     console.log("2. Oui, pour réduire les dégâts subis");
     console.log("3. Oui, pour augmenter les dégâts infligés");
@@ -53,7 +53,7 @@ io.askLuckUsage = async function (result) {
 };
 
 io.askContinueOrFlee = async function (canFlee) {
-    console.log("\n➡️ Continuer le combat ?");
+    console.log("\n Continuer le combat ?");
     console.log("1. Oui");
     if (canFlee) console.log("2. Fuir");
 
@@ -87,20 +87,20 @@ if (this.stepByStep && this.io) {
         if (luckRoll.success) {
             if (luckChoice === "reduce" && result.charactersHitHero > 0) {
                 result.charactersHitHero = Math.max(0, result.charactersHitHero - 1);
-                console.log("🍀 Chance réussie ! Tu réduis les dégâts subis.");
+                console.log(" Chance réussie ! Tu réduis les dégâts subis.");
             }
             if (luckChoice === "increase" && result.enemyHit) {
                 result.extraDamage = 2;
-                console.log("🍀 Chance réussie ! Tu infliges +2 dégâts.");
+                console.log(" Chance réussie ! Tu infliges +2 dégâts.");
             }
         } else {
             if (luckChoice === "reduce" && result.charactersHitHero > 0) {
                 result.charactersHitHero += 1;
-                console.log("💀 Chance ratée ! Tu subis +1 dégât.");
+                console.log(" Chance ratée ! Tu subis +1 dégât.");
             }
             if (luckChoice === "increase" && result.enemyHit) {
                 result.extraDamage = -1;
-                console.log("💀 Chance ratée ! Tu infliges -1 dégât.");
+                console.log(" Chance ratée ! Tu infliges -1 dégât.");
             }
         }
     }
@@ -150,13 +150,3 @@ Tu obtiens un mode console où :
 - tu choisis si tu continues ou si tu fuis  
 
 C’est exactement comme dans les Défis Fantastiques.
-
----
-
-# 🟩 Si tu veux, je peux te fournir :
-
-- la version complète de `fightMultiple()` avec les hooks intégrés  
-- la version complète de `assaultMultiple()` avec debug détaillé  
-- une version “livre‑jeu” de l’affichage console  
-
-Tu veux que je t’envoie la version complète de `fightMultiple()` prête à coller ?

@@ -15,9 +15,9 @@ export class ConsoleUI {
      * @param {Logger}    [logger]
      */
     constructor(io, logger = new Logger(LogLevel.INFO, "[ConsoleUI]")) {
-        this.io       = io;
-        this.logger   = logger;
-        this.combatUI = new CombatUI(this.makeCombatIO(), logger);
+        this.io = io;
+        this.logger = logger;
+        this.combatUI = new CombatUI(this._makeCombatIO(), logger);
     }
 
     // -------------------------------------------------------
@@ -30,7 +30,7 @@ export class ConsoleUI {
         this.io.print(`§ Paragraphe : ${result.paragraphId ?? "?"}`);
         this.io.print("─".repeat(48) + "\n");
         this.io.print(result.content || "(pas de texte)");
-        const penalty    = hero.drunkness > 0 ? Math.ceil(hero.drunkness / 2) : 0;
+        const penalty = hero.drunkness > 0 ? Math.ceil(hero.drunkness / 2) : 0;
         const dexDisplay = penalty > 0
             ? `DEX ${hero.dexterity} (-${penalty} ivresse)`
             : `DEX ${hero.dexterity}`;
@@ -73,6 +73,51 @@ export class ConsoleUI {
         this.io.print(`[ERREUR] ${msg}`);
     }
 
+    /**
+     * Attend une pression sur Entrée avant de continuer.
+     * Utilisé après les tests de dés pour laisser le joueur lire le résultat.
+     */
+    async waitForInput() {
+        await this.io.wait("Appuyez sur Entrée pour continuer...");
+    }
+
+    /**
+     * Affiche le message de fin d'aventure.
+     * @param {"success"|"failure"} endingType
+     */
+    renderEnding(endingType) {
+        if (endingType === "success") {
+            this.io.print("\n╔══════════════════════════════════╗");
+            this.io.print("║     FIN DE L'AVENTURE — SUCCÈS   ║");
+            this.io.print("║   Félicitations, aventurier !    ║");
+            this.io.print("╚══════════════════════════════════╝");
+        } else {
+            this.io.print("\n╔══════════════════════════════════╗");
+            this.io.print("║     FIN DE L'AVENTURE — ÉCHEC    ║");
+            this.io.print("║   L'aventure se termine ici...   ║");
+            this.io.print("╚══════════════════════════════════╝");
+        }
+    }
+
+    /**
+     * Propose au joueur de rejouer ou de quitter.
+     * @returns {Promise<"replay"|"quit">}
+     */
+    async askEndingChoice() {
+        this.io.print("\n1. Rejouer depuis le début");
+        this.io.print("2. Quitter");
+        const answer = await this.io.ask("Votre choix : ");
+        return answer === "1" ? "replay" : "quit";
+    }
+
+    /**
+     * Ferme le terminal.
+     */
+    close() {
+        this.io.print("\nAu revoir !");
+        this.io.close();
+    }
+
     // -------------------------------------------------------
     // Résultat d'un test de dés
     // -------------------------------------------------------
@@ -84,14 +129,14 @@ export class ConsoleUI {
         const { attribute, roll, threshold, success, diceCount = 2 } = testResult;
 
         const labels = {
-            chance:     "Chance",
-            dexterity:  "Dextérité",
-            drunkness:  "Ivresse",
-            parity:     "Parité",
-            random:     "Hasard"
+            chance: "Chance",
+            dexterity: "Dextérité",
+            drunkness: "Ivresse",
+            parity: "Parité",
+            random: "Hasard"
         };
         const label = labels[attribute] ?? attribute;
-        const dice  = `${diceCount}D6`;
+        const dice = `${diceCount}D6`;
 
         this.io.print("\n" + "─".repeat(48));
         this.io.print(`Test de ${label} (${dice})`);
@@ -102,10 +147,18 @@ export class ConsoleUI {
             this.io.print(`   Jet : ${roll}  |  Seuil : ${threshold}`);
         }
 
-        this.io.print(success
-            ? `   ✔ Réussi !`
-            : `   ✘ Échoué.`
-        );
+        if (attribute === "parity" || attribute === "random") {
+            this.io.print(success
+                ? `   ✔ Pair !`
+                : `   ✘ Impair.`
+            );
+        } else {
+            this.io.print(success
+                ? `   ✔ Réussi !`
+                : `   ✘ Échoué.`
+            );
+        }
+
         this.io.print("─".repeat(48));
     }
 
@@ -172,16 +225,16 @@ export class ConsoleUI {
         this.io.print(`\nVous trouvez : ${item.name}`);
 
         if (item.type === "equippable") {
-            await this.handleEquippable(item, inventoryEngine);
+            await this._handleEquippable(item, inventoryEngine);
         } else if (item.type === "consumable") {
-            await this.handleConsumable(item, inventoryEngine, context);
+            await this._handleConsumable(item, inventoryEngine, context);
         } else {
-            await this.handleMisc(item, inventoryEngine);
+            await this._handleMisc(item, inventoryEngine);
         }
     }
 
     /** @private */
-    async handleEquippable(item, inv) {
+    async _handleEquippable(item, inv) {
         this.io.print("1. Équiper  2. Mettre dans l'inventaire  3. Laisser");
         const answer = await this.io.ask("Votre choix : ");
 
@@ -198,7 +251,7 @@ export class ConsoleUI {
     }
 
     /** @private */
-    async handleConsumable(item, inv, context) {
+    async _handleConsumable(item, inv, context) {
         this.io.print("1. Utiliser  2. Mettre dans l'inventaire  3. Laisser");
         const answer = await this.io.ask("Votre choix : ");
 
@@ -215,12 +268,12 @@ export class ConsoleUI {
     }
 
     /** @private */
-    async handleMisc(item, inv) {
+    async _handleMisc(item, inv) {
         this.io.print("1. Prendre  2. Laisser");
         const answer = await this.io.ask("Votre choix : ");
 
         if (answer === "1") {
-            inv.addItem(item.item_id, 1);
+            inv.addItem(item.item_id, item.quantity ?? 1);
             this.io.print(`${item.name} ajouté à l'inventaire.`);
         } else {
             this.io.print("Vous laissez l'objet.");
@@ -232,15 +285,15 @@ export class ConsoleUI {
     // -------------------------------------------------------
 
     /** @private */
-    makeCombatIO() {
+    _makeCombatIO() {
         return {
             askLuckUsage: async (result) => {
                 this.io.print("\nUtiliser la Chance ?");
                 this.io.print("1. Non");
-                if (result.enemyHit)           this.io.print("2. Augmenter les dégâts infligés");
-                if (result.charactersHitHero)  this.io.print("3. Réduire les dégâts subis");
+                if (result.enemyHit) this.io.print("2. Augmenter les dégâts infligés");
+                if (result.charactersHitHero) this.io.print("3. Réduire les dégâts subis");
                 const answer = await this.io.ask("Ton choix : ");
-                if (answer === "2" && result.enemyHit)          return "increase";
+                if (answer === "2" && result.enemyHit) return "increase";
                 if (answer === "3" && result.charactersHitHero) return "reduce";
                 return "none";
             },
@@ -251,7 +304,7 @@ export class ConsoleUI {
                     this.io.print(`  ${i + 1}. ${e.name} (END ${e.endurance})`);
                 });
                 const answer = await this.io.ask("Votre cible : ");
-                const index  = parseInt(answer, 10) - 1;
+                const index = parseInt(answer, 10) - 1;
                 if (isNaN(index) || index < 0 || index >= enemies.length) {
                     // Choix invalide → première cible par défaut
                     this.io.print(`Choix invalide, ${enemies[0].name} ciblé par défaut.`);

@@ -39,10 +39,13 @@ export class EncounterModel {
             `SELECT * FROM encounter_rule WHERE encounter_id = ?`,
             [encounterId]
         );
-        return rows.map(r => ({
-            ...r,
-            params: r.rule_value ? JSON.parse(r.rule_value) : {}
-        }));
+        return rows.map(r => {
+            const params = r.rule_value ? JSON.parse(r.rule_value) : {};
+            if (r.item_id != null) {
+                params.item_id = r.item_id;
+            }
+            return { ...r, params };
+        });
     }
 
     // -------------------------------------------------------

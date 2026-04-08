@@ -1,11 +1,11 @@
-import { Dice }   from "./Dice.js";
+import { Dice } from "./Dice.js";
 import { Logger, LogLevel } from "./Logger.js";
 
 // -------------------------------------------------------
 // Constantes — IDs métier isolés ici pour traçabilité
 // -------------------------------------------------------
 const STATE_ID_SURPRISED = 9;   // état "surpris" en BDD
-const STATE_ID_COMBAT    = 1;   // état "en combat" en BDD
+const STATE_ID_COMBAT = 1;   // état "en combat" en BDD
 
 // -------------------------------------------------------
 // ParagraphEngine
@@ -26,23 +26,23 @@ export class ParagraphEngine {
      * @param {Logger}          [deps.logger]
      */
     constructor({
-                    paragraphModel,
-                    heroEngine,
-                    inventoryEngine,
-                    effectEngine,
-                    conditionEngine,
-                    stateEngine,
-                    combatEngine,
-                    logger = new Logger(LogLevel.INFO, "[ParagraphEngine]")
-                }) {
-        this.paragraphModel  = paragraphModel;
-        this.heroEngine      = heroEngine;
+        paragraphModel,
+        heroEngine,
+        inventoryEngine,
+        effectEngine,
+        conditionEngine,
+        stateEngine,
+        combatEngine,
+        logger = new Logger(LogLevel.INFO, "[ParagraphEngine]")
+    }) {
+        this.paragraphModel = paragraphModel;
+        this.heroEngine = heroEngine;
         this.inventoryEngine = inventoryEngine;
-        this.effectEngine    = effectEngine;
+        this.effectEngine = effectEngine;
         this.conditionEngine = conditionEngine;
-        this.stateEngine     = stateEngine;
-        this.combatEngine    = combatEngine;
-        this.logger          = logger;
+        this.stateEngine = stateEngine;
+        this.combatEngine = combatEngine;
+        this.logger = logger;
     }
 
     // -------------------------------------------------------
@@ -66,9 +66,24 @@ export class ParagraphEngine {
         visitedIds.add(paragraphId);
 
         const data = await this.paragraphModel.getParagraphData(paragraphId);
-        const { content, choices, tests, items, effects, encounters, is_surprised } = data;
+        const { content, choices, tests, items, effects, encounters, is_surprised, is_ending, ending_type } = data;
 
         this.logger.debug(`Résolution paragraphe ${paragraphId}`);
+
+        // 0. Paragraphe de fin — effets appliqués mais pas de navigation
+        if (is_ending) {
+            this.effectEngine.applyEffects(effects);
+            this.logger.info(`Fin de l'aventure — type : ${ending_type}`);
+            return {
+                paragraphId,
+                content,
+                items,
+                effects,
+                choices: [],
+                ending: true,
+                endingType: ending_type   // "success" | "failure"
+            };
+        }
 
         // 1. État "surpris"
         if (is_surprised) {
@@ -90,8 +105,8 @@ export class ParagraphEngine {
                 content,
                 items,
                 effects,
-                choices:    [],
-                next:       testResult.next,
+                choices: [],
+                next: testResult.next,
                 testResult              // embarqué pour affichage par l'UI
             };
         }
@@ -121,13 +136,13 @@ export class ParagraphEngine {
      * @returns {Promise<number>} ID du paragraphe suivant
      */
     async _resolveTest(test) {
-        const hero      = this.heroEngine.hero;
+        const hero = this.heroEngine.hero;
         const diceCount = test.dice_count ?? 2;
 
         // ── Chance ──────────────────────────────────────────────
         if (test.attribute === "chance") {
             const { success, roll } = Dice.testLuck(hero);
-            const thresholdBefore   = hero.luck;            // avant décrément
+            const thresholdBefore = hero.luck;            // avant décrément
             this.heroEngine.modifyAttribute("luck", "subtract", 1);
             this.logger.debug(`Test Chance : jet ${roll} ≤ ${thresholdBefore} → ${success ? "succès" : "échec"}`);
             return {
@@ -147,7 +162,7 @@ export class ParagraphEngine {
                 attribute: "parity",
                 roll,
                 threshold: null,
-                success:   isEven,
+                success: isEven,
                 next: isEven ? test.success_paragraph_id : test.failure_paragraph_id
             };
         }
@@ -156,14 +171,14 @@ export class ParagraphEngine {
         // §80 : lancer 1D6, résultat impair → §2, pair → §97
         // On réutilise parity mais avec le label "random"
         if (test.attribute === "random") {
-            const roll    = diceCount === 1 ? Dice.roll1D6() : Dice.roll2D6();
-            const isEven  = roll % 2 === 0;
+            const roll = diceCount === 1 ? Dice.roll1D6() : Dice.roll2D6();
+            const isEven = roll % 2 === 0;
             this.logger.debug(`Test Random : jet ${roll} → ${isEven ? "pair" : "impair"}`);
             return {
                 attribute: "random",
                 roll,
                 threshold: null,
-                success:   isEven,
+                success: isEven,
                 next: isEven ? test.success_paragraph_id : test.failure_paragraph_id
             };
         }
@@ -206,9 +221,12 @@ export class ParagraphEngine {
     async _resolveCombatParagraph(content, encounters, items, paragraphId) {
 
         const monsters = this._loadMonsters(encounters);
-        const rules    = encounters.flatMap(e => e.rules ?? []);
+        // Les règles sont portées par chaque monster (monster.rules).
+        // rules[] global = tableau vide — évite la double application
+        // dans applyPreCombatRules (monster.rules + flatMap seraient identiques).
+        const rules = [];
 
-        this.logger.debug(`Combat — ${monsters.length} monstre(s), ${rules.length} règle(s)`);
+        this.logger.debug(`Combat — ${monsters.length} monstre(s)`);
 
         const combatResult = await this.combatEngine.fight(monsters, rules);
 
@@ -219,11 +237,11 @@ export class ParagraphEngine {
             return {
                 paragraphId,
                 content,
-                items:    [],
-                log:      combatResult.log,
-                outcome:  combatResult.outcome,
+                items: [],
+                log: combatResult.log,
+                outcome: combatResult.outcome,
                 gameOver: true,
-                choices:  []
+                choices: []
             };
         }
 
@@ -234,8 +252,8 @@ export class ParagraphEngine {
             return {
                 paragraphId,
                 content,
-                items:   [],
-                log:     combatResult.log,
+                items: [],
+                log: combatResult.log,
                 outcome: combatResult.outcome,
                 next
             };
@@ -250,12 +268,12 @@ export class ParagraphEngine {
             paragraphId,
             content,
             items,                     // butin récupéré après victoire
-            log:             combatResult.log,
-            outcome:         combatResult.outcome,
+            log: combatResult.log,
+            outcome: combatResult.outcome,
             next,
             monsters,
-            currentHeroDex:  combatResult.finalDexterity,
-            currentHeroEnd:  combatResult.finalEndurance
+            currentHeroDex: combatResult.finalDexterity,
+            currentHeroEnd: combatResult.finalEndurance
         };
     }
 
@@ -272,15 +290,15 @@ export class ParagraphEngine {
      */
     _loadMonsters(encounters) {
         return encounters.map(e => ({
-            id:               e.character_id,
-            name:             e.character_name,
-            dexterity:        e.dexterity ?? e.character_dexterity,
-            endurance:        e.endurance ?? e.character_endurance,
-            character_type:   e.character_type,
+            id: e.character_id,
+            name: e.character_name,
+            dexterity: e.dexterity ?? e.character_dexterity,
+            endurance: e.endurance ?? e.character_endurance,
+            character_type: e.character_type,
             // target initial depuis la BDD — sera éventuellement surchargé
             // par les règles multi_enemy_behavior dans applyPreCombatRules
-            target:           e.character_target ?? (e.character_type === "ally" ? "other_enemy" : "hero"),
-            rules:            e.rules ?? []
+            target: e.character_target ?? (e.character_type === "ally" ? "other_enemy" : "hero"),
+            rules: e.rules ?? []
         }));
     }
 

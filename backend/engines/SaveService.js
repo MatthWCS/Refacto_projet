@@ -41,6 +41,22 @@ export class SaveService {
     }
 
     /**
+     * Efface la sauvegarde (appelé après une fin d'aventure pour permettre de rejouer).
+     * @param {string} [slot]
+     */
+    async clear(slot = "autosave") {
+        try {
+            await fetch(`/api/save/clear?adventure_id=${this.adventureId}&slot=${slot}`, {
+                method: "DELETE",
+                credentials: "include"
+            });
+            this.logger.debug(`Sauvegarde effacée — slot "${slot}"`);
+        } catch (err) {
+            this.logger.error("Erreur lors de l'effacement :", err);
+        }
+    }
+
+    /**
      * Charge la progression du joueur.
      * @param {string} [slot]
      * @returns {Promise<object|null>}

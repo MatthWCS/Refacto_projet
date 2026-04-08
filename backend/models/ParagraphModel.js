@@ -84,9 +84,18 @@ export class ParagraphModel {
     // -------------------------------------------------------
     static async getEncounters(paragraphId) {
         const [rows] = await db.query(
-            `SELECT e.*,
+            `SELECT
+                    e.id,
+                    e.paragraph_id,
+                    e.character_id,
+                    e.encounter_order,
+                    e.combat_type,
+                    e.paragraph_victory,
+                    e.paragraph_flee,
+                    e.flee_damage,
                     c.name             AS character_name,
                     c.character_type,
+                    c.target           AS character_target,
                     c.dexterity        AS character_dexterity,
                     c.endurance        AS character_endurance
              FROM \`encounter\` e
@@ -106,10 +115,16 @@ export class ParagraphModel {
             `SELECT * FROM encounter_rule WHERE encounter_id = ?`,
             [encounterId]
         );
-        return rows.map(r => ({
-            ...r,
-            params: r.rule_value ? JSON.parse(r.rule_value) : {}
-        }));
+        return rows.map(r => {
+            const params = r.rule_value ? JSON.parse(r.rule_value) : {};
+            // item_id est une colonne dédiée dans encounter_rule —
+            // on l'injecte dans params pour que les règles *_unless_item
+            // puissent y accéder via rule.params.item_id
+            if (r.item_id != null) {
+                params.item_id = r.item_id;
+            }
+            return { ...r, params };
+        });
     }
 
     // -------------------------------------------------------
@@ -132,7 +147,7 @@ export class ParagraphModel {
             };
         }
 
-        const { content, is_surprised } = paragraph;
+        const { content, is_surprised, is_ending = 0, ending_type = null } = paragraph;
 
         const [choices, tests, items, effects, encounters] = await Promise.all([
             this.getChoices(paragraphId),
@@ -148,9 +163,10 @@ export class ParagraphModel {
         }
 
         return {
-            paragraphId,
             content,
             is_surprised,
+            is_ending: !!is_ending,
+            ending_type: ending_type ?? null,
             choices,
             tests,
             items,

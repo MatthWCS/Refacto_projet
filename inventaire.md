@@ -1,7 +1,5 @@
 
-# 🧩 1) Ton architecture actuelle (parfaite pour ce qu’on veut faire)
-
-Tu as :
+# 🧩 1) Architecture actuelle 
 
 ### ✔️ Une table `item`  
 → qui contient tous les objets possibles  
@@ -18,9 +16,6 @@ Tu as :
 
 ### ✔️ Un `ParagraphEngine`  
 → qui résout les paragraphes et détecte les objets trouvés
-
-Tu as déjà **toutes les briques**.  
-Il manque juste **la logique interactive**.
 
 ---
 

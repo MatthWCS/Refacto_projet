@@ -158,7 +158,9 @@ export class HeroEngine {
      * @returns {boolean}
      */
     hasItem(item_id) {
-        return this.hero.inventory?.some(i => i.item_id === item_id) ?? false;
+        // Comparaison souple (==) : item_id peut être number ou string
+        // selon la source (BDD MySQL vs JSON parsé)
+        return this.hero.inventory?.some(i => i.item_id == item_id) ?? false;
     }
 
     // -------------------------------------------------------

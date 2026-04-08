@@ -24,7 +24,6 @@ export const App = () => {
         <Header />
         <Routes>
           <Route index element={<Home />} />
-          <Route path="/categories" element={<Categories />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/profil" element={<Profil />} />

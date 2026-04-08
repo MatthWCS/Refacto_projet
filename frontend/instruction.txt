@@ -1,6 +1,0 @@
-Creer un composant qui affiche une liste
-
-Ajouter un champ pour saisir un nouvel element
-
-Ajouter un bouton qui au click ajoute lelement a la liste et vide le champ
-

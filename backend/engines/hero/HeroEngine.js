@@ -120,6 +120,20 @@ export class HeroEngine {
             case "set_to_base":
                 this.hero[attribute] = this.hero[`initial_${attribute}`] ?? this.hero[attribute];
                 break;
+            case "set_initial": {
+                // Modifie la valeur initiale (plafond) ET la valeur courante
+                // si elle est inférieure à la nouvelle valeur initiale.
+                // Ex §91 : initial_luck passe à 13, luck aussi sauf si déjà > 13
+                const initialKey = `initial_${attribute}`;
+                if (this.hero[initialKey] !== undefined) {
+                    this.hero[initialKey] = value;
+                    this.logger.debug(`${initialKey} → ${value}`);
+                }
+                if (this.hero[attribute] < value) {
+                    this.hero[attribute] = value;
+                }
+                break;
+            }
             default:
                 this.logger.warn(`modifyAttribute : opération inconnue "${operation}"`);
                 return;

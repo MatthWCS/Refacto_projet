@@ -44,10 +44,13 @@ export class SaveModel {
                   luck, initial_luck, drunkness)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
-                 dexterity = VALUES(dexterity),
-                 endurance = VALUES(endurance),
-                 luck      = VALUES(luck),
-                 drunkness = VALUES(drunkness)`,
+                 dexterity         = VALUES(dexterity),
+                 initial_dexterity = VALUES(initial_dexterity),
+                 endurance         = VALUES(endurance),
+                 initial_endurance = VALUES(initial_endurance),
+                 luck              = VALUES(luck),
+                 initial_luck      = VALUES(initial_luck),
+                 drunkness         = VALUES(drunkness)`,
             [
                 save_id,
                 hero.dexterity, hero.initial_dexterity,
@@ -79,17 +82,14 @@ export class SaveModel {
         // 1.5 États
         await db.query(`DELETE FROM hero_state WHERE save_id = ?`, [save_id]);
         for (const state of hero.states) {
+            // remaining_duration doit être un entier ou NULL
+            const duration = (state.remaining_duration === null || state.remaining_duration === "permanent")
+                ? null
+                : parseInt(state.remaining_duration, 10);
             await db.query(
-                `INSERT INTO hero_state
-                     (save_id, state_id, remaining_duration, source_type, source_type_id)
-                 VALUES (?, ?, ?, ?, ?)`,
-                [
-                    save_id,
-                    state.state_id,
-                    state.remaining_duration ?? null,
-                    state.source_type ?? null,
-                    state.source_type_id ?? null
-                ]
+                `INSERT INTO hero_state (save_id, state_id, remaining_duration)
+                 VALUES (?, ?, ?)`,
+                [save_id, state.state_id, duration]
             );
         }
 
@@ -143,8 +143,7 @@ export class SaveModel {
 
         // États
         const [stateRows] = await db.query(
-            `SELECT state_id, remaining_duration, source_type, source_type_id
-             FROM hero_state WHERE save_id = ?`,
+            `SELECT state_id, remaining_duration FROM hero_state WHERE save_id = ?`,
             [save_id]
         );
         hero.states = stateRows;

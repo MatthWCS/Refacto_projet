@@ -129,10 +129,38 @@ export class CombatEngine {
 
         // 1) Dégâts ennemis → héros
         if (result.charactersHitHero > 0) {
-            const perHit = result.damagePerHit ?? BASE_DAMAGE;
-            const dmg = result.charactersHitHero * perHit;
-            this.heroEngine.modifyAttribute("endurance", "subtract", dmg);
-            this.logger.debug(`Héros perd ${dmg} END (${result.charactersHitHero} touche(s) × ${perHit})`);
+            const allRules = [
+                ...rules,
+                ...monsters.flatMap(m => m.rules ?? [])
+            ];
+            const incrRule = allRules.find(r => r.rule_type === "per_win_assault_damage");
+
+            // Vérifier si une règle conditional_damage_override prend en charge les dégâts
+            // Dans ce cas, section 1 ne doit pas appliquer BASE_DAMAGE —
+            // les dégâts seront gérés soit par CombatUI (result.damagePerHit)
+            // soit par le case conditional_damage_override en section 5
+            const hasOverride = allRules.some(r => r.rule_type === "conditional_damage_override");
+
+            let perHit;
+            if (incrRule) {
+                incrRule._hitCount = (incrRule._hitCount ?? 0) + result.charactersHitHero;
+                perHit = incrRule._hitCount * (incrRule.params.amount ?? 1);
+                this.logger.info(`per_win_assault_damage : touche n°${incrRule._hitCount} → ${perHit} END`);
+            } else if (result.damagePerHit !== null) {
+                // CombatUI a testé la Chance — utiliser la valeur ajustée
+                perHit = result.damagePerHit;
+            } else if (hasOverride) {
+                // conditional_damage_override gère les dégâts en section 5 — skip ici
+                perHit = null;
+            } else {
+                perHit = BASE_DAMAGE;
+            }
+
+            if (perHit !== null) {
+                const dmg = result.charactersHitHero * perHit;
+                this.heroEngine.modifyAttribute("endurance", "subtract", dmg);
+                this.logger.debug(`Héros perd ${dmg} END (${result.charactersHitHero} touche(s) × ${perHit})`);
+            }
         }
 
         // 2) Dégâts héros → ennemis ciblés
@@ -164,14 +192,18 @@ export class CombatEngine {
             }
         });
 
-        // 5) Règles spéciales
-        rules.forEach(rule => {
-            this._applySpecialRule(rule, result, round, monsters);
+        // 5) Règles spéciales — globales + par monster
+        const allSpecialRules = [
+            ...rules,
+            ...monsters.flatMap(m => m.rules ?? [])
+        ];
+        allSpecialRules.forEach(rule => {
+            this._applySpecialRule(rule, result, round, monsters, allSpecialRules);
         });
     }
 
     /** @private */
-    _applySpecialRule(rule, result, round, monsters) {
+    _applySpecialRule(rule, result, round, monsters, allRules = []) {
         switch (rule.rule_type) {
 
             case "damage_on_hit":
@@ -219,13 +251,52 @@ export class CombatEngine {
                 }
                 break;
 
-            case "conditional_damage_override":
-                if (result.charactersHitHero > 0) {
-                    const dmg = this._resolveConditionalDamageOverride(rule);
-                    this.heroEngine.modifyAttribute("endurance", "subtract", dmg);
-                    this.logger.info(`conditional_damage_override : -${dmg} END`);
+            case "conditional_damage_override": {
+                if (result.charactersHitHero <= 0) break;
+                if (rule.params.item_id != null) break;
+
+                const itemOverride = allRules.find(r =>
+                    r.rule_type === "conditional_damage_override" &&
+                    r.params.item_id != null &&
+                    this.heroEngine.hasItem(r.params.item_id)
+                );
+                if (itemOverride) break;
+
+                // Si le joueur a testé sa Chance (result.damagePerHit !== null),
+                // les dégâts sont déjà appliqués en section 1 — on ne re-calcule pas
+                if (result.damagePerHit !== null) break;
+
+                // Pas de test Chance — appliquer les dégâts de base
+                const dmg = (rule.params?.base ?? BASE_DAMAGE) * result.charactersHitHero;
+                this.heroEngine.modifyAttribute("endurance", "subtract", dmg);
+                this.logger.info(`conditional_damage_override (base) : -${dmg} END`);
+                break;
+            }
+
+            case "conditional_damage_override_with_item": {
+                if (result.charactersHitHero <= 0) break;
+                if (!this.heroEngine.hasItem(rule.params.item_id)) break;
+                if (result.damagePerHit !== null) break;
+
+                const dmg = (rule.params?.base ?? BASE_DAMAGE) * result.charactersHitHero;
+                this.heroEngine.modifyAttribute("endurance", "subtract", dmg);
+                this.logger.info(`conditional_damage_override (item ${rule.params.item_id}) : -${dmg} END`);
+                break;
+            }
+
+            case "stop_combat_below_endurance": {
+                // §25 — arrêt immédiat si END d'un ennemi ≤ seuil
+                const threshold = rule.params.threshold ?? 0;
+                const weakEnemy = monsters.find(
+                    m => m.target === "hero" && m.endurance > 0 && m.endurance <= threshold
+                );
+                if (weakEnemy) {
+                    result._stopCombat = true;
+                    result._stopParagraph = rule.params.paragraph ?? null;
+                    this.logger.info(`stop_combat_below_endurance : ${weakEnemy.name} END ${weakEnemy.endurance} ≤ ${threshold} → §${result._stopParagraph}`);
                 }
                 break;
+            }
 
             default:
                 this.logger.debug(`Règle spéciale inconnue ignorée : ${rule.rule_type}`);
@@ -304,8 +375,10 @@ export class CombatEngine {
         ];
         allRules.forEach(rule => {
             if (rule.rule_type === "flee_penalty") {
-                this.heroEngine.modifyAttribute("endurance", "subtract", rule.params.amount);
-                this.logger.info(`Pénalité de fuite : -${rule.params.amount} END`);
+                // attribute depuis params (défaut : "endurance" pour rétrocompatibilité)
+                const attribute = rule.params.attribute ?? "endurance";
+                this.heroEngine.modifyAttribute(attribute, "subtract", rule.params.amount);
+                this.logger.info(`Pénalité de fuite : -${rule.params.amount} ${attribute.toUpperCase()}`);
             }
         });
     }
@@ -448,6 +521,28 @@ export class CombatEngine {
 
             const result = this.resolveRound(monsters, chosenTargetId);
 
+            // Injecter les params de conditional_damage_override dans result
+            // pour que CombatUI puisse utiliser les bonnes valeurs lucky/unlucky
+            const allRules = [...rules, ...monsters.flatMap(m => m.rules ?? [])];
+            const dmgOverride = allRules.find(r => {
+                if (r.rule_type !== "conditional_damage_override") return false;
+                if (r.params.item_id != null) {
+                    return this.heroEngine.hasItem(r.params.item_id);
+                }
+                // Règle sans item — utilisée seulement si aucune règle item ne s'applique
+                return !allRules.some(r2 =>
+                    r2.rule_type === "conditional_damage_override" &&
+                    r2.params.item_id != null &&
+                    this.heroEngine.hasItem(r2.params.item_id)
+                );
+            });
+            if (dmgOverride) {
+                result.luckDamageParams = {
+                    lucky: dmgOverride.params.lucky ?? 1,
+                    unlucky: dmgOverride.params.unlucky ?? 3
+                };
+            }
+
             this.logger.debug(`Round ${round} — héros ${result.heroAttack}, ennemis: ${result.perEnemy.map(e => e.attack).join(", ")}`);
 
             // Phase interactive : l'UI peut modifier damagePerHit / extraDamage
@@ -462,6 +557,19 @@ export class CombatEngine {
             this.applyDuringCombatRules(result, rules, round, monsters);
 
             log.push(this._buildLogEntry(result, round, monsters));
+
+            // §25 — arrêt immédiat si un ennemi passe sous le seuil d'endurance
+            if (result._stopCombat) {
+                this.heroEngine.modifyAttribute("dexterity", "set_to_base");
+                this.logger.info(`Combat interrompu — redirection §${result._stopParagraph}`);
+                return {
+                    outcome: "stopped",
+                    stopParagraph: result._stopParagraph,
+                    finalDexterity: this.heroEngine.hero.dexterity,
+                    finalEndurance: this.heroEngine.hero.endurance,
+                    log,
+                };
+            }
 
             // Rechoix si la cible vient de mourir et qu'il reste des ennemis
             const chosenMonster = monsters.find(m => m.id === chosenTargetId);
@@ -517,18 +625,19 @@ export class CombatEngine {
         const unluckyDamage = rule.params?.unlucky ?? 6;
 
         if (!rule.params?.use_luck) {
-            this.logger.info(`Morsure venimeuse : -${baseDamage} END`);
+            this.logger.info(`Toucher glacial : -${baseDamage} END`);
             return baseDamage;
         }
 
         const luckRoll = Dice.testLuck(this.heroEngine.hero);
-        this.heroEngine.modifyAttribute("luck", "subtract", 1);
+        // Ne pas décrémenter la Chance ici — CombatUI le fait déjà
+        // via _handleLuck quand le joueur choisit d'utiliser sa Chance
 
         if (luckRoll.success) {
             this.logger.info(`Test de Chance réussi ! -${luckyDamage} END seulement.`);
             return luckyDamage;
         } else {
-            this.logger.info(`Malchance ! Venin : -${unluckyDamage} END.`);
+            this.logger.info(`Malchance ! -${unluckyDamage} END.`);
             return unluckyDamage;
         }
     }

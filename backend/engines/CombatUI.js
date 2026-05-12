@@ -110,7 +110,11 @@ export class CombatUI {
         if (luckChoice === "reduce") {
             // Le joueur tente de réduire les dégâts reçus
             if (result.charactersHitHero > 0) {
-                result.damagePerHit = luckRoll.success ? 1 : 3;
+                // Utiliser les valeurs lucky/unlucky de la règle si disponibles
+                // sinon valeurs génériques (1 chanceux, 3 malchanceux)
+                const lucky = result.luckDamageParams?.lucky ?? 1;
+                const unlucky = result.luckDamageParams?.unlucky ?? 3;
+                result.damagePerHit = luckRoll.success ? lucky : unlucky;
                 this.logger.info(
                     `Dégâts reçus ajustés : ${result.damagePerHit} par touche`
                 );

@@ -41,10 +41,8 @@ export class StateEngine {
     /**
      * @param {number}      state_id
      * @param {number|null} [remaining_duration] - null = durée de la définition SQL ou permanent
-     * @param {string|null} [source_type]
-     * @param {number|null} [source_type_id]
      */
-    addState(state_id, remaining_duration = null, source_type = null, source_type_id = null) {
+    addState(state_id, remaining_duration = null) {
         const def = this.definitions.get(state_id);
         if (!def) {
             this.logger.warn(`addState : état inconnu id=${state_id}`);
@@ -52,11 +50,12 @@ export class StateEngine {
         }
 
         // Durée par défaut depuis la définition SQL
+        // "permanent" → null (hero_state.remaining_duration est un INT)
         if (remaining_duration === null && def.duration) {
-            remaining_duration = def.duration;
+            remaining_duration = def.duration === "permanent" ? null : parseInt(def.duration, 10);
         }
 
-        this.heroEngine.hero.states.push({ state_id, remaining_duration, source_type, source_type_id });
+        this.heroEngine.hero.states.push({ state_id, remaining_duration });
         this.logger.debug(`État ajouté : ${def.name ?? state_id} (durée=${remaining_duration ?? "permanent"})`);
     }
 
@@ -139,14 +138,12 @@ export class StateEngine {
     // 6. Appliquer un état depuis un effet
     // -------------------------------------------------------
 
-    /** @param {object} effect - { value: state_id, duration, source_type, source_type_id } */
+    /** @param {object} effect - { value: state_id, duration } */
     applyStateFromEffect(effect) {
-        const { value: state_id, duration, source_type, source_type_id } = effect;
+        const { value: state_id, duration } = effect;
         this.addState(
             state_id,
-            duration === "instant" ? null : duration,
-            source_type ?? null,
-            source_type_id ?? null
+            duration === "instant" ? null : duration
         );
     }
 

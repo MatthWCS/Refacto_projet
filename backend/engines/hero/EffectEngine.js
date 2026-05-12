@@ -48,7 +48,7 @@ export class EffectEngine {
         }
 
         // Effet instantané
-        this.applyInstantEffect(effect);
+        this._applyInstantEffect(effect);
     }
 
     // -------------------------------------------------------
@@ -56,7 +56,7 @@ export class EffectEngine {
     // -------------------------------------------------------
 
     /** @private */
-    applyInstantEffect(effect) {
+    _applyInstantEffect(effect) {
         const { attribute, operation, value } = effect;
 
         // Validation minimale
@@ -72,6 +72,7 @@ export class EffectEngine {
             case "subtract":
             case "set_to":
             case "set_to_base":
+            case "set_initial":
                 if (!attribute) {
                     this.logger.warn(`applyInstantEffect : "${operation}" sans attribut cible`);
                     return;

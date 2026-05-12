@@ -48,10 +48,12 @@ export class StateModel {
     // -------------------------------------------------------
     static async findHeroStates(saveId) {
         const [rows] = await db.query(
-            `SELECT hs.*, s.name, s.description, s.state_type, s.attribute, s.value, s.duration, s.remove_condition
-             FROM hero_state hs
-             JOIN state s ON s.id = hs.state_id
-             WHERE hs.save_id = ?`,
+            `SELECT hs.state_id, hs.remaining_duration,
+                s.name, s.description, s.state_type,
+                s.attribute, s.value, s.duration, s.remove_condition
+         FROM hero_state hs
+         JOIN state s ON s.id = hs.state_id
+         WHERE hs.save_id = ?`,
             [saveId]
         );
         return rows;

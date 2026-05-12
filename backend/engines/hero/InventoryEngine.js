@@ -22,7 +22,6 @@ export class InventoryEngine {
         this.stateEngine = stateEngine;
         this.logger = logger;
 
-        // Normalise : accepte un tableau ou une Map
         if (itemDefinitions instanceof Map) {
             this.items = itemDefinitions;
         } else {
@@ -55,6 +54,7 @@ export class InventoryEngine {
 
         const max = def.quantity_max ?? Infinity;
         const existing = this.findInInventory(item_id);
+        const isNew = !existing;
 
         if (existing) {
             existing.quantity = Math.min(existing.quantity + quantity, max);
@@ -64,6 +64,12 @@ export class InventoryEngine {
                 quantity: Math.min(quantity, max),
                 is_equipped: false
             });
+        }
+
+        // Appliquer les effets permanents de l'item à la première acquisition
+        if (isNew && def.effects?.length > 0) {
+            this.effectEngine.applyEffects(def.effects);
+            this.logger.debug(`Effets item appliqués : id=${item_id}`);
         }
 
         this.logger.debug(`Item ajouté : id=${item_id} ×${quantity}`);
@@ -87,6 +93,9 @@ export class InventoryEngine {
             this.heroEngine.hero.inventory =
                 this.heroEngine.hero.inventory.filter(i => i.item_id !== item_id);
             this.logger.debug(`Item retiré de l'inventaire : id=${item_id}`);
+
+            // Recalculer les valeurs initiales depuis les items encore possédés
+            this._recalculateInitialAttributes();
         }
     }
 
@@ -168,5 +177,62 @@ export class InventoryEngine {
     /** @private */
     findInInventory(item_id) {
         return this.heroEngine.hero.inventory.find(i => i.item_id === item_id) ?? null;
+    }
+
+    /**
+     * Recalcule les valeurs initiales des attributs après retrait d'un item.
+     * Repart de la valeur de base (base_initial_*) et réapplique tous les
+     * effets set_initial des items encore possédés.
+     *
+     * @private
+     */
+    _recalculateInitialAttributes() {
+        const hero = this.heroEngine.hero;
+
+        // Collecter tous les effets set_initial des items encore possédés
+        const setInitialEffects = [];
+        for (const invItem of hero.inventory) {
+            const def = this.items.get(invItem.item_id);
+            if (!def?.effects) continue;
+            for (const effect of def.effects) {
+                if (effect.operation === "set_initial") {
+                    setInitialEffects.push(effect);
+                }
+            }
+        }
+
+        // Attributs concernés
+        const affectedAttributes = [...new Set(setInitialEffects.map(e => e.attribute))];
+
+        for (const attribute of affectedAttributes) {
+            const initialKey = `initial_${attribute}`;
+            const baseInitialKey = `base_initial_${attribute}`;
+
+            // Mémoriser la valeur de base la première fois (avant tout item)
+            if (hero[baseInitialKey] === undefined) {
+                hero[baseInitialKey] = hero[initialKey];
+            }
+
+            // Repartir de la valeur de base
+            hero[initialKey] = hero[baseInitialKey];
+
+            // Réappliquer les effets set_initial des items encore possédés
+            // (on prend le maximum si plusieurs items affectent le même attribut)
+            for (const effect of setInitialEffects.filter(e => e.attribute === attribute)) {
+                if (effect.value > hero[initialKey]) {
+                    hero[initialKey] = effect.value;
+                }
+            }
+
+            // Si la valeur courante dépasse le nouveau plafond, la ramener au plafond
+            if (hero[attribute] > hero[initialKey]) {
+                hero[attribute] = hero[initialKey];
+            }
+
+            this.logger.info(
+                `Recalcul ${initialKey} → ${hero[initialKey]} ` +
+                `(valeur courante : ${hero[attribute]})`
+            );
+        }
     }
 }

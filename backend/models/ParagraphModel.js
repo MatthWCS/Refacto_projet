@@ -50,7 +50,21 @@ export class ParagraphModel {
             `SELECT * FROM dice_test WHERE paragraph_id = ?`,
             [paragraphId]
         );
-        return rows;
+
+        const parseJsonField = (val) => {
+            if (!val) return [];
+            if (typeof val === "object") return val;   // déjà parsé par le driver MySQL
+            if (typeof val === "string" && val.trim()) {
+                try { return JSON.parse(val); } catch { return []; }
+            }
+            return [];
+        };
+
+        return rows.map(r => ({
+            ...r,
+            effects_on_success: parseJsonField(r.effects_on_success),
+            effects_on_failure: parseJsonField(r.effects_on_failure)
+        }));
     }
 
     // -------------------------------------------------------
@@ -147,7 +161,7 @@ export class ParagraphModel {
             };
         }
 
-        const { content, is_surprised, is_ending = 0, ending_type = null } = paragraph;
+        const { content, is_surprised, is_ending = 0, ending_type = null, content_after = null } = paragraph;
 
         const [choices, tests, items, effects, encounters] = await Promise.all([
             this.getChoices(paragraphId),
@@ -164,6 +178,7 @@ export class ParagraphModel {
 
         return {
             content,
+            content_after,
             is_surprised,
             is_ending: !!is_ending,
             ending_type: ending_type ?? null,

@@ -8,89 +8,24 @@
 
 
 
-
-
----
-paragraph 17:
-Ajouter l'état jambes de chèvre au hero_state
-Ajouter les bottes dans l’inventaire
----
-paragraph 23:
-Tester votre ivresse -> affichage du résultat et du choix vers le paragraphe suivant
----
-paragraph 24:
-changer la règle du combat
-dégât initial à 1 et chaque fois que la plante réussit une attaque on incrémente les dégâts de 1
----
-paragraphe 25:
-combat avec règle spécifique
-si END de l'ennemi <= 4 arrête le combat et rdv paragraphe 75
 ---
 paragraph 32:
 gestion des 2 flasques avec utilisation directe ou plus tard
----
-paragraphe 34: combat Centaure
-avant le début du combat
-affichage handleTest
-Tester votre chance -> affichage du résultat 
-si malchanceux end -2
 ---
 paragraphe 36:
 commerce: gestion achat/troc
 entrée dans paragraph_item à supprimer
 difficulté ++++
 ---
-paragraphe 48:
-gestion de la fuite -3 chance
-ajout de la récompense dans l'inventaire 
----
 paragraphe 49:
 gestion du has_item dans condition
 affichage du choix selon la condition
 verification avec is_equiped
 ---
-paragraphe 53:
-affichage : handleTest
-Tester votre dextérité -> affichage du résultat et du choix vers le paragraphe suivant
----
-paragraph 54:
-affichage handleTest
-Tester votre chance -> affichage du résultat 
-si chanceux -> paragraphe suivant
-si malchanceux end -1 -> tester votre chance jusqu'à chanceux
-ou endurance perdu = Math.floor(endurance début du paragraphe / 2)
----
-paragraphe 56:
-affichage handleTest
-Tester votre chance -> affichage du résultat et du choix vers le paragraphe suivant
----
-paragraphe 69:
-affichage handleTest (spécifique)
-Dice.1d6 + 5 comparer ivresse actuelle
-si inf -> 31
-sinon -> 65
----
-paragraph 70:
-test de chance spécial
-si chanceux -2 endurance
-si malchanceux -4 endurance -1 dexterity
--> affichage du résultat et application de l'effet conditionnel
----
-paragraph 85:
-décrémentation de la dextérité de 1 point à chaque assaut à partir du deuxième
-à la fin du combat dextérité = dextérité avant le combat
----
-paragraph 91:
-modification de la chance de base à 13 après l'ajout dans l'inventaire
-ajouter un case pour changer la valeur initiale de l'attribut
----
 paragraph 94:
 vérification: 
     - has_item pour la pierre percée ou is_equiped Couronne de thym et primevères
     - has_state pour le Symbole de Vitalité
----
-paragraph 98:
-Tester votre chance -> affichage du résultat et du choix vers le paragraphe suivant
 ---
 
 devOps/test unitaire et autres tests

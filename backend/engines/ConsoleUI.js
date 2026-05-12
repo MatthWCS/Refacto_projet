@@ -74,6 +74,21 @@ export class ConsoleUI {
     }
 
     /**
+     * Affiche la seconde partie du contenu d'un paragraphe
+     * après un test à effets (§70).
+     * @param {string} content
+     * @param {object} hero
+     */
+    renderContentAfter(content, hero) {
+        this.io.print("\n" + content);
+        const penalty = hero.drunkness > 0 ? Math.ceil(hero.drunkness / 2) : 0;
+        const dexDisplay = penalty > 0
+            ? `DEX ${hero.dexterity} (-${penalty} ivresse)`
+            : `DEX ${hero.dexterity}`;
+        this.io.print(`\n[${dexDisplay} | END ${hero.endurance} | CHANCE ${hero.luck} | IVRESSE ${hero.drunkness}]`);
+    }
+
+    /**
      * Attend une pression sur Entrée avant de continuer.
      * Utilisé après les tests de dés pour laisser le joueur lire le résultat.
      */
@@ -123,41 +138,47 @@ export class ConsoleUI {
     // -------------------------------------------------------
 
     /**
-     * @param {{ attribute: string, roll: number, threshold: number|null, success: boolean }} testResult
+     * @param {object} testResult
      */
     renderTestResult(testResult) {
-        const { attribute, roll, threshold, success, diceCount = 2 } = testResult;
+        const {
+            attribute, roll, threshold, success,
+            diceCount = 2, modifier = 0,
+            totalLoss, attempts,
+            preCombat = false, effects = []
+        } = testResult;
 
         const labels = {
             chance: "Chance",
+            luck_loop: "Chance (boucle)",
             dexterity: "Dextérité",
             drunkness: "Ivresse",
             parity: "Parité",
             random: "Hasard"
         };
         const label = labels[attribute] ?? attribute;
-        const dice = `${diceCount}D6`;
+        const diceStr = modifier !== 0 ? `${diceCount}D6+${modifier}` : `${diceCount}D6`;
 
         this.io.print("\n" + "─".repeat(48));
-        this.io.print(`Test de ${label} (${dice})`);
+        this.io.print(`🎲 Test de ${label} (${diceStr})${preCombat ? " — pré-combat" : ""}`);
 
-        if (attribute === "parity" || attribute === "random") {
+        if (attribute === "luck_loop") {
+            this.io.print(`   ${attempts} tentative(s) — ${totalLoss} END perdu(s)`);
+        } else if (attribute === "parity" || attribute === "random") {
             this.io.print(`   Jet : ${roll} → ${roll % 2 === 0 ? "Pair" : "Impair"}`);
         } else {
-            this.io.print(`   Jet : ${roll}  |  Seuil : ${threshold}`);
+            const total = modifier !== 0
+                ? `${roll}+${modifier}=${roll + modifier}`
+                : `${roll}`;
+            this.io.print(`   Jet : ${total}  |  Seuil : ${threshold}`);
         }
 
-        if (attribute === "parity" || attribute === "random") {
-            this.io.print(success
-                ? `   ✔ Pair !`
-                : `   ✘ Impair.`
-            );
-        } else {
-            this.io.print(success
-                ? `   ✔ Réussi !`
-                : `   ✘ Échoué.`
-            );
-        }
+        this.io.print(success ? `   ✔ Réussi !` : `   ✘ Échoué.`);
+
+        // Effets pré-combat appliqués (§34, §70)
+        effects.forEach(e => {
+            this.io.print(`   → ${e.attribute} ${e.operation === "subtract" ? "-" : "+"}${e.value}`);
+        });
 
         this.io.print("─".repeat(48));
     }
@@ -273,7 +294,7 @@ export class ConsoleUI {
         const answer = await this.io.ask("Votre choix : ");
 
         if (answer === "1") {
-            inv.addItem(item.item_id, item.quantity ?? 1);
+            inv.addItem(item.item_id, 1);
             this.io.print(`${item.name} ajouté à l'inventaire.`);
         } else {
             this.io.print("Vous laissez l'objet.");

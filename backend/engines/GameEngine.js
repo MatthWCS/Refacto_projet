@@ -181,6 +181,13 @@ export class GameEngine {
                 this.ui.renderTestResult?.(result.testResult);
                 await this.ui.waitForInput?.();
             }
+            // Tests pré-combat (§34, §70) — affichés avant le résumé de combat
+            if (result.preCombatResults?.length) {
+                for (const pcResult of result.preCombatResults) {
+                    this.ui.renderTestResult?.(pcResult);
+                    await this.ui.waitForInput?.();
+                }
+            }
             if (result.log) {
                 this.ui.renderCombatResult?.(result);
             }
@@ -210,6 +217,18 @@ export class GameEngine {
         );
 
         this.ui.renderParagraph(result, this.heroEngine.hero);
+
+        // Test à effets sans combat (§70) — affiché après le texte du paragraphe
+        if (result.effectTestResults?.length) {
+            for (const testResult of result.effectTestResults) {
+                this.ui.renderTestResult?.(testResult);
+                await this.ui.waitForInput?.();
+            }
+            // Afficher la seconde partie du texte si elle existe
+            if (result.content_after) {
+                this.ui.renderContentAfter?.(result.content_after, this.heroEngine.hero);
+            }
+        }
 
         // Items du paragraphe — affichés APRÈS le texte du paragraphe
         if (result.items?.length && this.ui.handleItemPickup) {

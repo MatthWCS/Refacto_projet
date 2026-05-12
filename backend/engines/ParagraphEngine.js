@@ -66,7 +66,7 @@ export class ParagraphEngine {
         visitedIds.add(paragraphId);
 
         const data = await this.paragraphModel.getParagraphData(paragraphId);
-        const { content, choices, tests, items, effects, encounters, is_surprised, is_ending, ending_type } = data;
+        const { content, choices, tests, items, effects, encounters, is_surprised, is_ending, ending_type, content_after } = data;
 
         this.logger.debug(`Résolution paragraphe ${paragraphId}`);
 
@@ -96,10 +96,13 @@ export class ParagraphEngine {
         // 3. Effets du paragraphe
         this.effectEngine.applyEffects(effects);
 
-        // 4. Test → on retourne le contenu du paragraphe de test + next
-        //    GameEngine affichera le texte PUIS suivra la redirection
-        if (tests.length > 0) {
-            const testResult = await this._resolveTest(tests[0]);
+        // 4. Tests normaux → redirection
+        //    Tests pré-combat → résolus avant le combat ou comme test à effets
+        const normalTests = tests.filter(t => !t.pre_combat);
+        const preCombatTests = tests.filter(t => t.pre_combat == 1);
+
+        if (normalTests.length > 0) {
+            const testResult = await this._resolveTest(normalTests[0]);
             return {
                 paragraphId,
                 content,
@@ -107,13 +110,37 @@ export class ParagraphEngine {
                 effects,
                 choices: [],
                 next: testResult.next,
-                testResult              // embarqué pour affichage par l'UI
+                testResult
             };
         }
 
-        // 5. Combat
+        // 4b. Test à effets sans combat (§70) — pre_combat sans encounter
+        //     Applique les effets conditionnels puis affiche les choix normalement
+        if (preCombatTests.length > 0 && encounters.length === 0) {
+            const effectTestResults = [];
+            for (const test of preCombatTests) {
+                const testResult = await this._resolvePreCombatTest(test);
+                effectTestResults.push(testResult);
+            }
+            return {
+                paragraphId,
+                content,
+                content_after: content_after ?? null,
+                items,
+                effects,
+                choices: this._filterChoices(choices),
+                effectTestResults
+            };
+        }
+
+        // 5. Combat (avec éventuels tests pré-combat §34)
         if (encounters.length > 0) {
-            return this._resolveCombatParagraph(content, encounters, items, paragraphId);
+            const preCombatResults = [];
+            for (const test of preCombatTests) {
+                const testResult = await this._resolvePreCombatTest(test);
+                preCombatResults.push(testResult);
+            }
+            return this._resolveCombatParagraph(content, encounters, items, paragraphId, preCombatResults);
         }
 
         // 6. Choix filtrés par conditions
@@ -138,6 +165,44 @@ export class ParagraphEngine {
     async _resolveTest(test) {
         const hero = this.heroEngine.hero;
         const diceCount = test.dice_count ?? 2;
+
+        // ── Luck Loop (§54) ─────────────────────────────────────
+        // Boucle jusqu'à réussite ou perte de floor(END_départ/2)
+        if (test.attribute === "luck_loop") {
+            const endStart = this.heroEngine.hero.endurance;
+            const maxLoss = Math.floor(endStart / 2);
+            let totalLoss = 0;
+            let success = false;
+            let lastRoll = 0;
+            let attempts = 0;
+
+            while (!success && totalLoss < maxLoss) {
+                const { success: s, roll } = Dice.testLuck(this.heroEngine.hero);
+                const thresholdBefore = this.heroEngine.hero.luck;
+                this.heroEngine.modifyAttribute("luck", "subtract", 1);
+                lastRoll = roll;
+                attempts++;
+                this.logger.debug(`Luck loop tentative ${attempts} : jet ${roll} ≤ ${thresholdBefore} → ${s ? "succès" : "échec"}`);
+
+                if (s) {
+                    success = true;
+                } else {
+                    this.heroEngine.modifyAttribute("endurance", "subtract", 1);
+                    totalLoss++;
+                }
+            }
+
+            this.logger.info(`Luck loop terminée : ${attempts} tentative(s), ${totalLoss} END perdu(s)`);
+            return {
+                attribute: "luck_loop",
+                roll: lastRoll,
+                threshold: this.heroEngine.hero.luck + 1,
+                success: true,    // toujours §57 dans les deux cas
+                totalLoss,
+                attempts,
+                next: test.success_paragraph_id   // §57 dans les deux cas
+            };
+        }
 
         // ── Chance ──────────────────────────────────────────────
         if (test.attribute === "chance") {
@@ -185,6 +250,8 @@ export class ParagraphEngine {
 
         // ── Attribut générique (dexterity, drunkness, etc.) ─────
         const roll = diceCount === 1 ? Dice.roll1D6() : Dice.roll2D6();
+        const modifier = test.modifier ?? 0;
+        const total = roll + modifier;
 
         let threshold = hero[test.attribute] ?? 0;
 
@@ -197,16 +264,68 @@ export class ParagraphEngine {
             }
         }
 
-        const success = roll <= threshold;
-        this.logger.debug(`Test ${test.attribute} (${diceCount}D6) : jet ${roll} ≤ ${threshold} → ${success ? "succès" : "échec"}`);
+        const success = total <= threshold;
+        this.logger.debug(
+            modifier !== 0
+                ? `Test ${test.attribute} (${diceCount}D6+${modifier}) : jet ${roll}+${modifier}=${total} ≤ ${threshold} → ${success ? "succès" : "échec"}`
+                : `Test ${test.attribute} (${diceCount}D6) : jet ${roll} ≤ ${threshold} → ${success ? "succès" : "échec"}`
+        );
 
         return {
             attribute: test.attribute,
             diceCount,
+            modifier,
             roll,
+            total,
             threshold,
             success,
             next: success ? test.success_paragraph_id : test.failure_paragraph_id
+        };
+    }
+
+    // -------------------------------------------------------
+    // Tests pré-combat (§34, §70)
+    // -------------------------------------------------------
+
+    /**
+     * Résout un test pré-combat et applique les effets conditionnels.
+     * §34 : malchanceux → -2 END avant combat
+     * §70 : chanceux → -2 END, malchanceux → -4 END -1 DEX
+     *
+     * Les effets sont définis dans les colonnes success/failure de dice_test
+     * via un champ effects_on_success / effects_on_failure en JSON,
+     * ou via la table effect liée au test. Pour l'instant on les gère
+     * directement depuis rule_value du test (champs embarqués).
+     *
+     * @private
+     * @param {object} test
+     * @returns {Promise<object>} testResult avec effets appliqués
+     */
+    async _resolvePreCombatTest(test) {
+        const hero = this.heroEngine.hero;
+        const { success, roll } = Dice.testLuck(hero);
+        const thresholdBefore = hero.luck;
+        this.heroEngine.modifyAttribute("luck", "subtract", 1);
+
+        this.logger.debug(`Test pré-combat Chance : jet ${roll} ≤ ${thresholdBefore} → ${success ? "chanceux" : "malchanceux"}`);
+
+        // Appliquer les effets conditionnels selon succès/échec
+        const effects = success
+            ? (test.effects_on_success ?? [])
+            : (test.effects_on_failure ?? []);
+
+        for (const effect of effects) {
+            this.heroEngine.modifyAttribute(effect.attribute, effect.operation, effect.value);
+            this.logger.info(`Effet pré-combat : ${effect.attribute} ${effect.operation} ${effect.value}`);
+        }
+
+        return {
+            attribute: "chance",
+            roll,
+            threshold: thresholdBefore,
+            success,
+            preCombat: true,
+            effects     // pour affichage UI
         };
     }
 
@@ -216,9 +335,9 @@ export class ParagraphEngine {
 
     /**
      * @private
-     * Charge les monstres, lance le combat, retourne le résultat formaté.
+     * @param {object[]} [preCombatResults]
      */
-    async _resolveCombatParagraph(content, encounters, items, paragraphId) {
+    async _resolveCombatParagraph(content, encounters, items, paragraphId, preCombatResults = []) {
 
         const monsters = this._loadMonsters(encounters);
         // Les règles sont portées par chaque monster (monster.rules).
@@ -242,6 +361,20 @@ export class ParagraphEngine {
                 outcome: combatResult.outcome,
                 gameOver: true,
                 choices: []
+            };
+        }
+
+        // Arrêt combat (seuil END atteint — ex §25)
+        if (combatResult.outcome === "stopped") {
+            return {
+                paragraphId,
+                content,
+                items,
+                log: combatResult.log,
+                outcome: combatResult.outcome,
+                next: combatResult.stopParagraph,
+                currentHeroDex: combatResult.finalDexterity,
+                currentHeroEnd: combatResult.finalEndurance
             };
         }
 
@@ -272,6 +405,7 @@ export class ParagraphEngine {
             outcome: combatResult.outcome,
             next,
             monsters,
+            preCombatResults,          // tests pré-combat pour affichage UI
             currentHeroDex: combatResult.finalDexterity,
             currentHeroEnd: combatResult.finalEndurance
         };

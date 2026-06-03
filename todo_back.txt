@@ -22,11 +22,7 @@ gestion du has_item dans condition
 affichage du choix selon la condition
 verification avec is_equiped
 ---
-paragraph 94:
-vérification: 
-    - has_item pour la pierre percée ou is_equiped Couronne de thym et primevères
-    - has_state pour le Symbole de Vitalité
----
+
 
 devOps/test unitaire et autres tests
 documentation

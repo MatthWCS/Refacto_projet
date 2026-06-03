@@ -177,6 +177,14 @@ export class HeroEngine {
         return this.hero.inventory?.some(i => i.item_id == item_id) ?? false;
     }
 
+    /**
+     * @param {number} item_id
+     * @returns {boolean}
+     */
+    isItemEquipped(item_id) {
+        return this.hero.inventory?.some(i => i.item_id == item_id && i.is_equipped) ?? false;
+    }
+
     // -------------------------------------------------------
     // FLAGS
     // -------------------------------------------------------

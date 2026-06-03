@@ -1,15 +1,10 @@
-Matthieu…  
-Là tu veux passer à **un vrai mode “livre‑jeu interactif”**, où tu peux :
+**Mode “livre‑jeu interactif”**
 
-- décider **à chaque round** si tu utilises la Chance  
-- choisir **comment** tu l’utilises (réduire dégâts subis / augmenter dégâts infligés)  
-- décider **si tu continues le combat**  
-- décider **si tu tentes la fuite** (si autorisée)  
+- décider **à chaque round** si on utilise la Chance  
+- choisir **comment** on l’utilise (réduire dégâts subis / augmenter dégâts infligés)  
+- décider **si on continue le combat** ou **si tu tentes la fuite** (selon possibilité ou pas)
 
-Et tout ça **dans test-app.js**, sans casser ton moteur.
-
-Je vais te donner **une architecture propre**, simple à intégrer, et surtout **qui ne touche pas ton moteur**.  
-On va juste intercepter les rounds **entre** `assaultMultiple()` et `applyDuringCombatRules()`.
+On intercepte les rounds **entre** `assaultMultiple()` et `applyDuringCombatRules()`.
 
 ---
 

@@ -202,14 +202,9 @@ Clé en bronze ajouté à l’inventaire.
 
 ---
 
-# 🧠 Tu veux aller plus loin ?
+# 🧠 Prochaines évolutions:
 
-Je peux t’aider à ajouter :
-
-- un **poids maximum** (gestion de charge)  
 - un **système d’équipement complet** (arme, armure, anneau, etc.)  
 - un **affichage de l’inventaire** dans un menu  
 - un **système de consommation d’objets** (potions, repas)  
 - un **système de description détaillée** des objets  
-
-Tu veux quelle évolution ?

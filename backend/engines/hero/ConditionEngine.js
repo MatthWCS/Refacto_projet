@@ -29,25 +29,31 @@ export class ConditionEngine {
 
         switch (condition.type) {
             case "attribute":
-                return this.compare(
+                return this._compare(
                     this.heroEngine.getAttribute(condition.attribute),
                     condition.operator,
                     condition.value
                 );
             case "flag":
-                return this.compare(
+                return this._compare(
                     this.heroEngine.hasFlag(condition.flag_id),
                     condition.operator,
                     true
                 );
             case "item":
-                return this.compare(
+                return this._compare(
                     this.heroEngine.hasItem(condition.item_id),
                     condition.operator,
                     true
                 );
+            case "item_equipped":
+                return this._compare(
+                    this.heroEngine.isItemEquipped(condition.item_id),
+                    condition.operator,
+                    true
+                );
             case "state":
-                return this.compare(
+                return this._compare(
                     this.heroEngine.hasState(condition.state_id),
                     condition.operator,
                     true
@@ -119,11 +125,11 @@ export class ConditionEngine {
     }
 
     // -------------------------------------------------------
-    // 3. Comparateur générique
+    // 3. Comparateur générique (privé)
     // -------------------------------------------------------
 
     /** @private */
-    compare(left, operator, right) {
+    _compare(left, operator, right) {
         switch (operator) {
             case ">": return left > right;
             case ">=": return left >= right;
@@ -134,7 +140,7 @@ export class ConditionEngine {
             case "has": return !!left;
             case "not_has": return !left;
             default:
-                this.logger.warn(`compare : opérateur inconnu "${operator}"`);
+                this.logger.warn(`_compare : opérateur inconnu "${operator}"`);
                 return true;
         }
     }

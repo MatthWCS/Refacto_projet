@@ -247,14 +247,13 @@ export class ConsoleUI {
 
         if (item.type === "equippable") {
             await this._handleEquippable(item, inventoryEngine);
-        } else if (item.type === "consumable") {
-            await this._handleConsumable(item, inventoryEngine, context);
         } else {
-            await this._handleMisc(item, inventoryEngine);
+            await this._handlePickup(item, inventoryEngine);
         }
+        return null;
     }
 
-    /** @private */
+    /** @private — équipables : équiper, mettre en inventaire, ou laisser */
     async _handleEquippable(item, inv) {
         this.io.print("1. Équiper  2. Mettre dans l'inventaire  3. Laisser");
         const answer = await this.io.ask("Votre choix : ");
@@ -271,16 +270,12 @@ export class ConsoleUI {
         }
     }
 
-    /** @private */
-    async _handleConsumable(item, inv, context) {
-        this.io.print("1. Utiliser  2. Mettre dans l'inventaire  3. Laisser");
+    /** @private — tous les autres types : prendre ou laisser */
+    async _handlePickup(item, inv) {
+        this.io.print("1. Prendre  2. Laisser");
         const answer = await this.io.ask("Votre choix : ");
 
         if (answer === "1") {
-            inv.addItem(item.item_id, item.quantity ?? 1);
-            const useResult = inv.useItem(item.item_id, context);
-            this.io.print(useResult.success ? "L'objet a été utilisé." : useResult.message);
-        } else if (answer === "2") {
             inv.addItem(item.item_id, item.quantity ?? 1);
             this.io.print(`${item.name} ajouté à l'inventaire.`);
         } else {

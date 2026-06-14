@@ -193,12 +193,13 @@ export class GameEngine {
             }
             // Items du paragraphe intermédiaire (butin de combat, etc.)
             if (result.items?.length && this.ui.handleItemPickup) {
-                const context = {
-                    inCombat: false,
-                    surprised: false
-                };
+                const context = { inCombat: false, surprised: false };
                 for (const item of result.items) {
-                    await this.ui.handleItemPickup(item, this.inventoryEngine, context);
+                    const pickup = await this.ui.handleItemPickup(item, this.inventoryEngine, context);
+                    if (pickup?.goto) {
+                        await this.goToParagraph(pickup.goto);
+                        return;
+                    }
                 }
             }
             await this.goToParagraph(result.next);
@@ -218,6 +219,13 @@ export class GameEngine {
 
         this.ui.renderParagraph(result, this.heroEngine.hero);
 
+        // Vérification endurance après effets du paragraphe
+        if (this.heroEngine.hero.endurance <= 0) {
+            this.isGameOver = true;
+            this.ui.renderGameOver(this.heroEngine.hero);
+            return;
+        }
+
         // Test à effets sans combat (§70) — affiché après le texte du paragraphe
         if (result.effectTestResults?.length) {
             for (const testResult of result.effectTestResults) {
@@ -227,6 +235,12 @@ export class GameEngine {
             // Afficher la seconde partie du texte si elle existe
             if (result.content_after) {
                 this.ui.renderContentAfter?.(result.content_after, this.heroEngine.hero);
+            }
+            // Vérification endurance après effets du test
+            if (this.heroEngine.hero.endurance <= 0) {
+                this.isGameOver = true;
+                this.ui.renderGameOver(this.heroEngine.hero);
+                return;
             }
         }
 
@@ -238,6 +252,12 @@ export class GameEngine {
             };
             for (const item of result.items) {
                 await this.ui.handleItemPickup(item, this.inventoryEngine, context);
+                // Vérifier si le héros est mort suite à l'utilisation d'un item
+                if (this.heroEngine.hero.endurance <= 0) {
+                    this.isGameOver = true;
+                    this.ui.renderGameOver(this.heroEngine.hero);
+                    return;
+                }
             }
         }
 

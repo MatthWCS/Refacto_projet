@@ -122,7 +122,14 @@ export class CombatUI {
         } else if (luckChoice === "increase") {
             // Le joueur tente d'augmenter les dégâts infligés
             if (result.enemyHit) {
-                result.extraDamage = luckRoll.success ? LUCKY_DAMAGE_BONUS : -UNLUCKY_DAMAGE_MOD;
+                if (result.bonusDamageParams) {
+                    // Poison végétal (§36) — remplace le bonus de base
+                    // par la valeur chanceux/malchanceux
+                    const { lucky, unlucky } = result.bonusDamageParams;
+                    result.extraDamage = luckRoll.success ? lucky : unlucky;
+                } else {
+                    result.extraDamage = luckRoll.success ? LUCKY_DAMAGE_BONUS : -UNLUCKY_DAMAGE_MOD;
+                }
                 this.logger.info(
                     `Dégâts infligés ajustés : ${result.extraDamage > 0 ? "+" : ""}${result.extraDamage}`
                 );

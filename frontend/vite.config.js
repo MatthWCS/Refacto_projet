@@ -9,8 +9,13 @@ export default defineConfig({
     alias: {
       "@assets": "/src/assets",
       "@components": "/src/components",
+      "@ui": "/src/components/ui",
+      "@shared": "/src/components/shared",
       "@pages": "/src/pages",
-      "@store": "/src/store"
+      "@store": "/src/store",
+      "@apiSlice": "/src/store/apislice",
+      "@slice": "/src/store/slice",
+      "@utils": "/src/utils"
     }
   }
 })

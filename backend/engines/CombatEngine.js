@@ -39,6 +39,8 @@ export class CombatEngine {
      */
     applyPreCombatRules(rules, monsters) {
 
+        const POISON_ARMED_STATE_ID = 10;
+
         // La cible initiale est déjà fixée dans _loadMonsters
         // depuis le champ character.target en BDD.
         // On marque les alliés pour les helpers qui en ont besoin.
@@ -47,6 +49,17 @@ export class CombatEngine {
                 monster.isAlly = true;
             }
         });
+
+        // Poison végétal (§36) — si armé, injecte une règle de dégâts bonus
+        // pour ce combat puis retire l'état (effet à usage unique)
+        if (this.stateEngine.hasState(POISON_ARMED_STATE_ID)) {
+            rules.push({
+                rule_type: "bonus_damage_on_hero_hit",
+                params: { base: 3, lucky: 4, unlucky: 2 }
+            });
+            this.stateEngine.removeState(POISON_ARMED_STATE_ID);
+            this.logger.info("Poison végétal activé pour ce combat (+3 END par coup, +4 si Chance, +2 si Malchance)");
+        }
 
         // Règles par monstre — source unique de vérité
         // (les règles sont stockées dans monster.rules depuis _loadMonsters)
@@ -298,6 +311,11 @@ export class CombatEngine {
                 break;
             }
 
+            case "bonus_damage_on_hero_hit":
+                // Géré directement dans fight() (injection result.extraDamage)
+                // et CombatUI (ajustement Chance) — rien à faire ici
+                break;
+
             default:
                 this.logger.debug(`Règle spéciale inconnue ignorée : ${rule.rule_type}`);
         }
@@ -541,6 +559,21 @@ export class CombatEngine {
                     lucky: dmgOverride.params.lucky ?? 1,
                     unlucky: dmgOverride.params.unlucky ?? 3
                 };
+            }
+
+            // Poison végétal (§36) — bonus de dégâts infligés au prochain combat
+            const bonusRule = allRules.find(r => r.rule_type === "bonus_damage_on_hero_hit");
+            if (bonusRule) {
+                result.bonusDamageParams = {
+                    base: bonusRule.params.base ?? 0,
+                    lucky: bonusRule.params.lucky ?? 0,
+                    unlucky: bonusRule.params.unlucky ?? 0
+                };
+                // Bonus de base appliqué dès que le héros touche,
+                // ajustable via le test de Chance dans CombatUI
+                if (result.enemyHit) {
+                    result.extraDamage = result.bonusDamageParams.base;
+                }
             }
 
             this.logger.debug(`Round ${round} — héros ${result.heroAttack}, ennemis: ${result.perEnemy.map(e => e.attack).join(", ")}`);

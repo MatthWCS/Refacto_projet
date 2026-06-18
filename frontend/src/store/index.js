@@ -1,21 +1,15 @@
 import { configureStore } from "@reduxjs/toolkit"
-import { categoryApiSlice, userApiSlice, authApiSlice } from "./apiSlice"
-import categoryFormReducer from './slice/categoryFormSlice'
-import registerFormReducer from './slice/registerFormSlice'
-import loginFormReducer from './slice/loginFormSlice'
+import { authApiSlice, gameApiSlice } from "./apislice"
 import authReducer from "./slice/authSlice"
 
 const store = configureStore({
     reducer: {
-        category: categoryApiSlice.reducer,
-        user: userApiSlice.reducer,
-        authApi: authApiSlice.reducer,
-        categoryForm: categoryFormReducer,
-        registerForm: registerFormReducer,
-        loginForm: loginFormReducer,
+        [authApiSlice.reducerPath]: authApiSlice.reducer,
+        [gameApiSlice.reducerPath]: gameApiSlice.reducer,
         auth: authReducer
     },
-    middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(categoryApiSlice.middleware, userApiSlice.middleware, authApiSlice.middleware)
+    middleware: (getDefaultMiddleware) =>
+        getDefaultMiddleware().concat(authApiSlice.middleware, gameApiSlice.middleware)
 })
 
 export default store

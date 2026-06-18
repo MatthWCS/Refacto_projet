@@ -66,10 +66,14 @@ export class InventoryEngine {
             });
         }
 
-        // Appliquer les effets permanents de l'item à la première acquisition
-        if (isNew && def.effects?.length > 0) {
+        // Effets appliqués dès l'acquisition UNIQUEMENT pour les objets non
+        // "usable" (bonus passifs : couronnes, trèfles...). Les consommables
+        // (usable=1) appliquent leurs effets à l'utilisation (cf. useItem),
+        // jamais au ramassage — sinon un objet pris puis utilisé plus tard
+        // verrait son effet appliqué deux fois.
+        if (isNew && !def.usable && def.effects?.length > 0) {
             this.effectEngine.applyEffects(def.effects);
-            this.logger.debug(`Effets item appliqués : id=${item_id}`);
+            this.logger.debug(`Effets item appliqués (acquisition) : id=${item_id}`);
         }
 
         this.logger.debug(`Item ajouté : id=${item_id} ×${quantity}`);

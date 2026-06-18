@@ -1,4 +1,5 @@
 import { GameSessionManager } from "../engines/GameSessionManager.js";
+import { ParagraphModel } from "../models/ParagraphModel.js";
 
 // -------------------------------------------------------
 // GameController
@@ -103,7 +104,7 @@ export class GameController {
 
         const { engine, ui } = session;
 
-        if (ui.state.pending) {
+        if (ui.isBlocked()) {
             return res.status(409).json({ error: "Une decision est en attente.", pending: ui.state.pending });
         }
 
@@ -127,14 +128,19 @@ export class GameController {
             return res.json({ ...result, state: ui.state });
         }
 
-        // Objet a redirection (ex: flasques §32)
+        // Objet avec texte d'ambiance associé (ex: §37/42/58 — flasques/gourde).
+        // Ce n'est PAS une navigation : le paragraphe courant ne change pas,
+        // on renvoie juste le texte du paragraphe cible à afficher (modale
+        // frontend), pour éviter de rejouer un paragraphe déjà visité
+        // (cf. ParagraphEngine.resolveParagraph qui réapplique tout sans
+        // tracking de visite).
+        let flavorContent = null;
         if (result.goto) {
-            ui.beginTurn();
-            const state = await GameSessionManager.runStep(session, () => engine.goToParagraph(result.goto));
-            return res.json({ ...result, state });
+            const flavorParagraph = await ParagraphModel.getParagraph(result.goto);
+            flavorContent = flavorParagraph?.content ?? null;
         }
 
-        res.json({ ...result, state: ui.state });
+        res.json({ ...result, flavorContent, state: ui.state });
     }
 
     // POST /api/game/inventory/equip — { item_id }
@@ -142,6 +148,9 @@ export class GameController {
         const session = GameSessionManager.get(req.user.id);
         if (!session) {
             return res.status(404).json({ error: "Partie non demarree." });
+        }
+        if (session.ui.isBlocked()) {
+            return res.status(409).json({ error: "Une decision est en attente.", pending: session.ui.state.pending });
         }
 
         const { item_id } = req.body;
@@ -155,6 +164,9 @@ export class GameController {
         const session = GameSessionManager.get(req.user.id);
         if (!session) {
             return res.status(404).json({ error: "Partie non demarree." });
+        }
+        if (session.ui.isBlocked()) {
+            return res.status(409).json({ error: "Une decision est en attente.", pending: session.ui.state.pending });
         }
 
         const { item_id } = req.body;
@@ -184,6 +196,9 @@ export class GameController {
         const session = GameSessionManager.get(req.user.id);
         if (!session) {
             return res.status(404).json({ error: "Partie non demarree." });
+        }
+        if (session.ui.isBlocked()) {
+            return res.status(409).json({ error: "Une decision est en attente.", pending: session.ui.state.pending });
         }
 
         const { tradeOfferId, giveItemId } = req.body;

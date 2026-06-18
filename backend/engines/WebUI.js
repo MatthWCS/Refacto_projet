@@ -1,5 +1,22 @@
 import { CombatUI } from "./CombatUI.js";
 import { Logger, LogLevel } from "./Logger.js";
+import { ParagraphModel } from "../models/ParagraphModel.js";
+
+// -------------------------------------------------------
+// Types de pending qui empêchent une action hors-flux
+// (inventaire, troc) : le joueur est au milieu d'une
+// décision exclusive qui doit être résolue avant toute
+// autre interaction. "choice" et "no_choices" sont l'état
+// de repos normal du jeu — ils n'en font PAS partie.
+// -------------------------------------------------------
+const BLOCKING_PENDING_TYPES = new Set([
+    "item_pickup",
+    "combat_target",
+    "combat_luck",
+    "combat_flee",
+    "continue",
+    "ending_choice"
+]);
 
 // -------------------------------------------------------
 // serializeHero
@@ -84,6 +101,7 @@ export class WebUI {
         this.state.combat = null;
         this.state.items = [];
         this.state.error = null;
+        this.state.choices = [];
     }
 
     /**
@@ -156,6 +174,15 @@ export class WebUI {
         }
         this._resolver(value);
         return true;
+    }
+
+    /**
+     * @returns {boolean} true si une décision exclusive est en attente
+     *   (ramassage d'objet, combat, fin...) — false pour "choice",
+     *   "no_choices" ou l'absence de pending (état de repos normal).
+     */
+    isBlocked() {
+        return !!this.state.pending && BLOCKING_PENDING_TYPES.has(this.state.pending.type);
     }
 
     // -------------------------------------------------------
@@ -277,11 +304,17 @@ export class WebUI {
      */
     async handleItemPickup(item, inventoryEngine, context = {}) {
         const isEquippable = item.type === "equippable";
+        const isUsableConsumable = !isEquippable && !!item.usable;
+
         const options = isEquippable
             ? ["equip", "inventory", "discard"]
-            : ["take", "discard"];
+            : isUsableConsumable
+                ? ["use_now", "take", "discard"]
+                : ["take", "discard"];
 
         const answer = await this._wait("item_pickup", { item, context, options });
+
+        let flavorContent = null;
 
         if (isEquippable) {
             if (answer === "equip") {
@@ -290,11 +323,20 @@ export class WebUI {
             } else if (answer === "inventory") {
                 inventoryEngine.addItem(item.item_id, item.quantity ?? 1);
             }
+        } else if (answer === "use_now") {
+            // Ajout puis usage immédiat — réutilise la logique d'InventoryEngine
+            // (effets + retrait) plutôt que de la dupliquer ici.
+            inventoryEngine.addItem(item.item_id, item.quantity ?? 1);
+            const result = inventoryEngine.useItem(item.item_id, context);
+            if (result.goto) {
+                const flavorParagraph = await ParagraphModel.getParagraph(result.goto);
+                flavorContent = flavorParagraph?.content ?? null;
+            }
         } else if (answer === "take") {
             inventoryEngine.addItem(item.item_id, item.quantity ?? 1);
         }
 
-        this.state.items.push({ item, answer });
+        this.state.items.push({ item, answer, flavorContent });
         return null;
     }
 

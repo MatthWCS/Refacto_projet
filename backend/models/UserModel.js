@@ -29,8 +29,8 @@ export class UserModel {
 
     static async create(data) {
         await db.query(
-            `INSERT INTO user (name, email, password) VALUES (?, ?, ?)`,
-            [data.name, data.email, data.password]
+            `INSERT INTO user (username, email, password) VALUES (?, ?, ?)`,
+            [data.username, data.email, data.password]
         );
     }
 

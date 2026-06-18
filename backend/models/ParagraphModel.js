@@ -72,7 +72,7 @@ export class ParagraphModel {
     // -------------------------------------------------------
     static async getParagraphItems(paragraphId) {
         const [rows] = await db.query(
-            `SELECT pi.*, i.name, i.type, i.usable, i.description
+            `SELECT pi.*, i.name, i.type, i.usable, i.description, i.target_paragraph_id
              FROM paragraph_item pi
              JOIN item i ON i.id = pi.item_id
              WHERE pi.paragraph_id = ?`,

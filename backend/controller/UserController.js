@@ -49,11 +49,11 @@ export class UserController {
 
         try {
             // on recupere les données du body de la requete
-            const { name, email, password } = req.body
+            const { username, email, password } = req.body
 
             // on verifie si les donnees sont absentes
             if (
-                !name || !email || !password
+                !username || !email || !password
             ) {
                 // si une est absente on revoit une erreure
                 res.status(400)
@@ -80,7 +80,7 @@ export class UserController {
 
             // on cree le user en DB
             await UserModel.create({
-                name,
+                username,
                 email,
                 password: hashedPassword
             })

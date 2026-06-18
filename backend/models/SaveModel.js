@@ -93,6 +93,15 @@ export class SaveModel {
             );
         }
 
+        // 1.6 Trocs effectués (§36)
+        await db.query(`DELETE FROM hero_trade WHERE save_id = ?`, [save_id]);
+        for (const tradeOfferId of hero.trades ?? []) {
+            await db.query(
+                `INSERT INTO hero_trade (save_id, trade_offer_id) VALUES (?, ?)`,
+                [save_id, tradeOfferId]
+            );
+        }
+
         return { success: true };
     }
 
@@ -148,6 +157,13 @@ export class SaveModel {
         );
         hero.states = stateRows;
 
+        // Trocs effectués (§36)
+        const [tradeRows] = await db.query(
+            `SELECT trade_offer_id FROM hero_trade WHERE save_id = ?`,
+            [save_id]
+        );
+        hero.trades = tradeRows.map(r => r.trade_offer_id);
+
         return { hero, current_paragraph_id };
     }
 
@@ -181,10 +197,11 @@ export class SaveModel {
         // Supprimer les données liées explicitement
         // (sécurisé même sans CASCADE)
         await db.query(`DELETE FROM hero_inventory WHERE save_id = ?`, [save_id]);
-        await db.query(`DELETE FROM hero_flag      WHERE save_id = ?`, [save_id]);
-        await db.query(`DELETE FROM hero_state     WHERE save_id = ?`, [save_id]);
-        await db.query(`DELETE FROM hero           WHERE save_id = ?`, [save_id]);
-        await db.query(`DELETE FROM game_save      WHERE id = ?`, [save_id]);
+        await db.query(`DELETE FROM hero_flag WHERE save_id = ?`, [save_id]);
+        await db.query(`DELETE FROM hero_state WHERE save_id = ?`, [save_id]);
+        await db.query(`DELETE FROM hero_trade WHERE save_id = ?`, [save_id]);
+        await db.query(`DELETE FROM hero WHERE save_id = ?`, [save_id]);
+        await db.query(`DELETE FROM game_save WHERE id = ?`, [save_id]);
 
         return { success: true };
     }

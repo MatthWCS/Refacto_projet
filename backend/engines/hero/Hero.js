@@ -23,7 +23,8 @@ export class Hero {
         base_initial_luck,
         inventory = [],
         flags = [],
-        states = []
+        states = [],
+        trades = []
     } = {}) {
         this.name = name;
 
@@ -53,6 +54,8 @@ export class Hero {
         this.flags = flags;
         // États actifs : [{ state_id, remaining_duration }]
         this.states = states;
+        // Trocs effectués : [trade_offer_id, ...]
+        this.trades = trades;
     }
 
     /**
@@ -75,7 +78,8 @@ export class Hero {
             base_initial_luck: this.base_initial_luck,
             inventory: this.inventory,
             flags: this.flags,
-            states: this.states
+            states: this.states,
+            trades: this.trades
         };
     }
 }

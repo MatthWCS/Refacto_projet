@@ -8,6 +8,7 @@ import { EffectEngine } from "./hero/EffectEngine.js";
 import { StateEngine } from "./hero/StateEngine.js";
 import { CombatEngine } from "./CombatEngine.js";
 import { ParagraphEngine } from "./ParagraphEngine.js";
+import { TradeEngine } from "./TradeEngine.js";
 import { SaveService } from "./SaveService.js";
 
 import { ParagraphModel } from "../models/ParagraphModel.js";
@@ -53,6 +54,7 @@ export class GameEngine {
         this.effectEngine = null;
         this.inventoryEngine = null;
         this.combatEngine = null;
+        this.tradeEngine = null;
         this.paragraphEngine = null;
         this.saveService = saveService ?? new SaveService(adventureId, logger);
 
@@ -103,6 +105,12 @@ export class GameEngine {
         this.combatEngine = new CombatEngine(
             this.heroEngine,
             this.stateEngine,
+            this.logger
+        );
+
+        this.tradeEngine = new TradeEngine(
+            this.heroEngine,
+            this.inventoryEngine,
             this.logger
         );
 

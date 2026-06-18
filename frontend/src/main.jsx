@@ -4,11 +4,12 @@ import './index.css'
 import { App } from './App.jsx'
 import { Provider } from "react-redux"
 import store from './store'
-import i18n from './i18n/config.js'
+import { Toaster } from "@ui"
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <Provider store={store}>
+      <Toaster />
       <App />
     </Provider>
   </StrictMode>,

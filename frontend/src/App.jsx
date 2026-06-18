@@ -1,37 +1,33 @@
-import './App.scss'
-import { Header } from '@components/Header'
-import { Home, Categories, Login, Register, Profil } from '@pages'
-import { Footer } from '@components/Footer'
-import { BrowserRouter, Routes, Route } from 'react-router'
-import { Toaster } from './components/Toaster'
-
-import { useTranslation } from 'react-i18next'
-import { useEffect } from 'react'
+import { BrowserRouter, Routes, Route } from "react-router"
+import { LoginPage, RegisterPage, GamePage } from "@pages"
+import { ProtectedRoute } from "@components/ProtectedRoute"
+import { useAuthInit } from "./hooks/useAuthInit"
+import { Spinner } from "@ui"
 
 export const App = () => {
+    const { isLoading } = useAuthInit()
 
-  const { i18n } = useTranslation()
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <Spinner size="lg" />
+            </div>
+        )
+    }
 
-  useEffect(() => {
+    return (
+        <BrowserRouter>
+            <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
 
-    document.documentElement.lang = i18n.language
+                <Route element={<ProtectedRoute />}>
+                    <Route path="/game" element={<GamePage />} />
+                    <Route index element={<GamePage />} />
+                </Route>
 
-  }, [i18n.language])
-
-  return (
-    <>
-      <BrowserRouter>
-        <Header />
-        <Routes>
-          <Route index element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/profil" element={<Profil />} />
-          <Route path="*" element={<p>404 not found</p>} />
-        </Routes>
-        <Toaster />
-        <Footer />
-      </BrowserRouter >
-    </>
-  )
+                <Route path="*" element={<p className="text-center mt-10">404 - Page non trouvée</p>} />
+            </Routes>
+        </BrowserRouter>
+    )
 }

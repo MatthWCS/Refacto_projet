@@ -1,1 +1,0 @@
-INSERT INTO `adventure` (`id`, `title`, `description`, `slug`, `created_by_user_id`, `starting_paragraph_id`, `created_at`, `updated_at`) VALUES ('1', 'Feary', 'Un livre dont Vous êtes le héros.', 'feary', '1', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);

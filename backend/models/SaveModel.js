@@ -168,8 +168,27 @@ export class SaveModel {
     }
 
     // -------------------------------------------------------
-    // 3. Effacer la progression
+    // 4. Lister les sauvegardes d'un utilisateur
     // -------------------------------------------------------
+
+    /**
+     * @param {number} user_id
+     * @param {number} adventure_id
+     * @returns {Promise<Array>}
+     */
+    static async listSaves(user_id, adventure_id) {
+        const [rows] = await db.query(
+            `SELECT gs.id, gs.slot_name, gs.current_paragraph_id,
+                    gs.created_at, gs.updated_at,
+                    h.dexterity, h.endurance, h.luck, h.drunkness
+             FROM game_save gs
+             LEFT JOIN hero h ON h.save_id = gs.id
+             WHERE gs.user_id = ? AND gs.adventure_id = ?
+             ORDER BY gs.updated_at DESC`,
+            [user_id, adventure_id]
+        );
+        return rows;
+    }
 
     /**
      * Supprime la sauvegarde et toutes les données associées.

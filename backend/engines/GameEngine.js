@@ -132,11 +132,12 @@ export class GameEngine {
     // 2. DÉMARRAGE
     // -------------------------------------------------------
 
-    /** @param {number} [startParagraphId] */
-    async start(startParagraphId = 0) {
+    /** @param {number} [startParagraphId]  @param {string} [slot] */
+    async start(startParagraphId = 0, slot = "autosave") {
 
-        const save = await this.saveService.load();
+        const save = await this.saveService.load(slot);
         this.hero = save ? new Hero(save.hero) : HeroFactory.createNewHero("Héros");
+        this.activeSlot = slot;
 
         await this._initEngines();
 
@@ -146,7 +147,7 @@ export class GameEngine {
         }
 
         const paragraphId = save?.current_paragraph_id ?? startParagraphId;
-        this.logger.info(`Démarrage — paragraphe ${paragraphId}`);
+        this.logger.info(`Démarrage — paragraphe ${paragraphId}, slot "${slot}"`);
 
         await this.goToParagraph(paragraphId);
     }

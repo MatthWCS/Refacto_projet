@@ -8,8 +8,9 @@ const { JWT_SECRET_KEY } = process.env;
 
 // -------------------------------------------------------
 // isAdmin
-// Vérifie que l'utilisateur authentifié a le rôle "admin".
-// Doit être utilisé APRÈS isAuthenticated (req.user déjà dispo).
+// Vérifie que l'utilisateur authentifié a is_admin = 1.
+// Peut être utilisé seul (vérifie aussi le token) ou après
+// isAuthenticated (req.user déjà disponible).
 // -------------------------------------------------------
 export const isAdmin = async (req, res, next) => {
     try {
@@ -19,17 +20,14 @@ export const isAdmin = async (req, res, next) => {
             return res.status(401).json({ message: "No token provided" });
         }
 
-        // Le payload JWT est { user: { id, name, role, ... } }
-        // cohérent avec AuthController.login qui signe { user: cleanUser }
         const decoded = jwt.verify(token, JWT_SECRET_KEY);
         const user = await UserModel.findById(decoded.user.id);
 
-        if (!user || user.role !== "admin") {
+        if (!user || !user.is_admin) {
             return res.status(403).json({ message: "Forbidden — admin only" });
         }
 
-        req.user = decoded.user;
-
+        req.user = { ...decoded.user, is_admin: user.is_admin };
         next();
 
     } catch (error) {

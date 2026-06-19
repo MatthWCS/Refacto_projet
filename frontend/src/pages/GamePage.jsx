@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react"
+import { Link, useLocation } from "react-router"
 import {
     useStartGameMutation,
     useSendActionMutation,
@@ -23,6 +24,7 @@ import {
     InventoryBar
 } from "@components/game"
 
+// ─── GamePage ─────────────────────────────────────────────────────────────────
 
 export const GamePage = () => {
     const [gameState, setGameState] = useState(null)
@@ -30,6 +32,9 @@ export const GamePage = () => {
     const [itemDefs, setItemDefs] = useState({})
     const [busy, setBusy] = useState(false)
     const contentRef = useRef(null)
+
+    const location = useLocation()
+    const slot = location.state?.slot ?? "autosave"
 
     const [gameStarted, setGameStarted] = useState(false)
     const [startGame] = useStartGameMutation()
@@ -60,7 +65,7 @@ export const GamePage = () => {
         const init = async () => {
             setBusy(true)
             try {
-                const res = await startGame().unwrap()
+                const res = await startGame({ slot }).unwrap()
                 if (!cancelled) {
                     applyState(res)
                     setGameStarted(true)
@@ -152,7 +157,7 @@ export const GamePage = () => {
         }
     }
 
-    // Chargement initial
+    // ── Chargement initial ────────────────────────────────────────────────────
     if (!gameState && busy) {
         return (
             <div className="flex items-center justify-center min-h-screen gap-3">
@@ -188,9 +193,11 @@ export const GamePage = () => {
                 <header className="px-6 py-3 border-b border-emerald-900/30
                                    flex items-center justify-between sticky top-0 z-30
                                    bg-base-100/90 backdrop-blur-sm">
-                    <span className="text-emerald-700 text-xs font-mono tracking-widest uppercase">
+                    <Link to="/home"
+                        className="text-emerald-700 text-xs font-mono tracking-widest
+                                   uppercase hover:text-emerald-500 transition-colors">
                         Les Bois Enchantés
-                    </span>
+                    </Link>
                     {busy && <Spinner size="xs" />}
                 </header>
 

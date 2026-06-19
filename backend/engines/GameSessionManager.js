@@ -37,10 +37,18 @@ export class GameSessionManager {
      * Recupere la session existante ou en cree une nouvelle
      * (sans démarrer le moteur — voir GameController.start).
      * @param {number} userId
+     * @param {string} [slot]
      * @returns {Promise<object>}
      */
-    static async getOrCreate(userId) {
+    static async getOrCreate(userId, slot = "autosave") {
         let session = sessions.get(userId);
+
+        // Si une session existe déjà sur un slot différent, on la réinitialise
+        if (session && session.slot !== slot) {
+            sessions.delete(userId);
+            session = null;
+        }
+
         if (session) return session;
 
         const logger = new Logger(LogLevel.INFO, `[Game user=${userId}]`);
@@ -63,7 +71,7 @@ export class GameSessionManager {
             }
         });
 
-        session = { userId, engine, ui, logger, started: false };
+        session = { userId, engine, ui, logger, started: false, slot };
         sessions.set(userId, session);
         return session;
     }

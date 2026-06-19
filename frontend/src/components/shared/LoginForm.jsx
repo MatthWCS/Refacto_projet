@@ -16,7 +16,7 @@ export const LoginForm = () => {
             }).unwrap()
 
             toast.success(getSuccessMessage(result, "Connexion réussie !"))
-            navigate("/game")
+            navigate("/home")
         } catch (err) {
             toast.error(getErrorMessage(err, "Erreur lors de la connexion"))
         }

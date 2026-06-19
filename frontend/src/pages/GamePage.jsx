@@ -22,6 +22,7 @@ import {
     EndingScreen,
     InventoryBar
 } from "@components/game"
+import { Link } from "react-router"
 
 
 export const GamePage = () => {
@@ -188,9 +189,10 @@ export const GamePage = () => {
                 <header className="px-6 py-3 border-b border-emerald-900/30
                                    flex items-center justify-between sticky top-0 z-30
                                    bg-base-100/90 backdrop-blur-sm">
-                    <span className="text-emerald-700 text-xs font-mono tracking-widest uppercase">
+                    <Link to="/home"
+                        className="text-emerald-700 text-xs font-mono tracking-widest uppercase">
                         Les Bois Enchantés
-                    </span>
+                    </Link>
                     {busy && <Spinner size="xs" />}
                 </header>
 

@@ -1,3 +1,6 @@
+export * from "./AccountPage"
+export * from "./GamePage"
+export * from "./HomePage"
 export * from "./LoginPage"
 export * from "./RegisterPage"
-export * from "./GamePage"
+export * from "./SavesPage"

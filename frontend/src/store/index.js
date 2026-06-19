@@ -1,5 +1,5 @@
 import { configureStore } from "@reduxjs/toolkit"
-import { authApiSlice, gameApiSlice, saveApiSlice } from "./apislice"
+import { adminApiSlice, authApiSlice, gameApiSlice, saveApiSlice } from "./apislice"
 import authReducer from "./slice/authSlice"
 
 const store = configureStore({
@@ -7,6 +7,7 @@ const store = configureStore({
         [authApiSlice.reducerPath]: authApiSlice.reducer,
         [gameApiSlice.reducerPath]: gameApiSlice.reducer,
         [saveApiSlice.reducerPath]: saveApiSlice.reducer,
+        [adminApiSlice.reducerPath]: adminApiSlice.reducer,
         auth: authReducer
     },
     middleware: (getDefaultMiddleware) =>
@@ -14,6 +15,7 @@ const store = configureStore({
             authApiSlice.middleware,
             gameApiSlice.middleware,
             saveApiSlice.middleware,
+            adminApiSlice.middleware,
         )
 })
 

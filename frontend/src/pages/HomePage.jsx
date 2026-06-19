@@ -1,31 +1,29 @@
-import { useNavigate } from "react-router"
+import { useNavigate, Link } from "react-router"
 import { useSelector } from "react-redux"
-import { useListSavesQuery, useStartGameMutation } from "@apiSlice"
+import { useListSavesQuery } from "@apiSlice"
 import { Spinner } from "@ui"
-import { MenuCard } from "@shared"
+import { MenuCard } from "@components/home"
 
 export const HomePage = () => {
     const navigate = useNavigate()
     const user = useSelector(state => state.auth.user)
 
     const { data: savesData, isLoading: savesLoading } = useListSavesQuery()
-    const [startGame, { isLoading: starting }] = useStartGameMutation()
+    const saves = savesData?.saves ?? []
+    const hasSaves = saves.length > 0
+    const latestSlot = saves[0]?.slot_name ?? "autosave"
 
-    const hasSaves = (savesData?.saves?.length ?? 0) > 0
-
-    const handleNewGame = async () => {
-        // Démarre une nouvelle partie — GamePage s'en chargera via startGame au montage
-        navigate("/game")
+    const handleNewGame = () => {
+        navigate("/game", { state: { slot: "autosave", newGame: true } })
     }
 
     const handleContinue = () => {
-        navigate("/game")
+        navigate("/game", { state: { slot: latestSlot } })
     }
 
     return (
         <main className="flex flex-col items-center justify-center min-h-screen gap-8 p-6">
 
-            {/* Titre */}
             <div className="text-center flex flex-col gap-2">
                 <h1 className="text-4xl font-semibold text-emerald-300 tracking-wide">
                     Faery ~ Interlude Sylvain ~
@@ -35,15 +33,13 @@ export const HomePage = () => {
                 </p>
             </div>
 
-            {/* Séparateur décoratif */}
             <div className="flex items-center gap-3 w-full max-w-sm opacity-30">
                 <div className="flex-1 h-px bg-emerald-700" />
                 <span className="text-emerald-700 text-xs">✦</span>
                 <div className="flex-1 h-px bg-emerald-700" />
             </div>
 
-            {/* Menu */}
-            {savesLoading || starting ? (
+            {savesLoading ? (
                 <div className="flex items-center gap-3 text-emerald-600">
                     <Spinner size="sm" />
                     <span className="text-sm animate-pulse">Chargement…</span>
@@ -65,7 +61,6 @@ export const HomePage = () => {
                             : "Aucune sauvegarde disponible"}
                         onClick={handleContinue}
                         disabled={!hasSaves}
-                        variant="default"
                     />
                     <MenuCard
                         icon="💾"
@@ -84,10 +79,17 @@ export const HomePage = () => {
                 </div>
             )}
 
-            {/* Pied de page */}
-            <p className="text-base-content/20 text-xs mt-4">
-                Un livre dont vous êtes le héros
-            </p>
+            <div className="flex flex-col items-center gap-2">
+                <p className="text-base-content/20 text-xs">
+                    Un livre dont vous êtes le héros
+                </p>
+                {user?.is_admin && (
+                    <Link to="/admin"
+                        className="text-xs text-emerald-800 hover:text-emerald-600">
+                        Dashboard admin
+                    </Link>
+                )}
+            </div>
         </main>
     )
 }

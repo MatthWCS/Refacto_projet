@@ -99,9 +99,10 @@ export class AuthController {
                 return;
             }
 
-            const { email: _email, password: _password, ...cleanUser } = user
+            const { password: _password, ...publicUser } = user
+            const { email: _email, ...cleanUser } = publicUser
 
-            // on genere un token de connexion
+            // on genere un token de connexion (payload allégé, sans email)
             const token = jwt.sign(
                 { user: cleanUser }, // payload du token
                 jwtSecret, // cle secrete qui permet de signer le token
@@ -139,8 +140,8 @@ export class AuthController {
                 partitioned: false
             })
             res.status(200)
-            // Envoie d'une reponse qui contient un message
-            res.json({ message: "Authenticated successfuly !" })
+            // Envoie d'une reponse qui contient un message et le user complet (sans password)
+            res.json({ message: "Authenticated successfuly !", user: publicUser })
 
         } catch (error) {
             res.status(500)

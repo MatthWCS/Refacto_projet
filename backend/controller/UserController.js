@@ -1,137 +1,88 @@
-import dotenv from "dotenv"
 import bcrypt from "bcrypt"
 import { UserModel } from "../models/UserModel.js"
 
-dotenv.config()
-
-const { JWT_SECRET_KEY } = process.env
-
 export class UserController {
 
+    // GET /api/user — liste tous les comptes (admin)
     static async list(req, res) {
-
         try {
-
             const users = await UserModel.findAll()
-
-            res.status(200)
-            res.json({
-                message: "Users fetched",
-                users
-            })
-
+            res.json({ users })
         } catch (error) {
-            res.status(500)
-            res.json({ message: "Internal Server Error" })
+            res.status(500).json({ message: "Internal Server Error" })
         }
     }
 
+    // GET /api/user/:id — détail d'un compte (admin)
     static async one(req, res) {
-
         try {
-
-            const { id } = req.params
-            const user = await UserModel.findById(id)
-
-            res.status(200)
-            res.json({
-                message: "User fetched",
-                user
-            })
-
+            const user = await UserModel.findById(req.params.id)
+            if (!user) return res.status(404).json({ message: "Utilisateur introuvable" })
+            res.json({ user })
         } catch (error) {
-            res.status(500)
-            res.json({ message: "Internal Server Error" })
+            res.status(500).json({ message: "Internal Server Error" })
         }
     }
 
+    // POST /api/user — créer un compte (admin)
     static async create(req, res) {
-
         try {
-            // on recupere les données du body de la requete
             const { username, email, password } = req.body
 
-            // on verifie si les donnees sont absentes
-            if (
-                !username || !email || !password
-            ) {
-                // si une est absente on revoit une erreure
-                res.status(400)
-                res.json({
-                    message: "All fields are required"
-                })
-                return
+            if (!username || !email || !password) {
+                return res.status(400).json({ message: "Tous les champs sont requis" })
             }
 
-            // on recherche un user avec le mail fournit
-            const isEmailUsed = await UserModel.findByEmail(email)
-
-            // s'il est deja utilise on renvoie un message
-            if (isEmailUsed) {
-                res.status(403)
-                res.json({
-                    message: "Email already in use"
-                })
-                return
+            const emailUsed = await UserModel.findByEmail(email)
+            if (emailUsed) {
+                return res.status(409).json({ message: "Email déjà utilisé" })
             }
 
-            // on hash le mot de passe
+            const usernameUsed = await UserModel.findByUsername(username)
+            if (usernameUsed) {
+                return res.status(409).json({ message: "Nom d'utilisateur déjà pris" })
+            }
+
             const hashedPassword = await bcrypt.hash(password, 10)
+            await UserModel.create({ username, email, password: hashedPassword })
 
-            // on cree le user en DB
-            await UserModel.create({
-                username,
-                email,
-                password: hashedPassword
-            })
-
-            // on confirme la creation par un message
-            res.status(201)
-            res.json({
-                message: "Account created successfully"
-            })
-
+            res.status(201).json({ message: "Compte créé avec succès" })
         } catch (error) {
-            res.status(500)
-            res.json({ message: "Internal Server Error" })
+            res.status(500).json({ message: "Internal Server Error" })
         }
     }
 
+    // PATCH /api/user/:id — modifier un compte (admin, username seulement)
     static async update(req, res) {
-
         try {
+            const { username } = req.body
+            if (!username) {
+                return res.status(400).json({ message: "Username requis" })
+            }
 
-            const { data } = req.body
+            const existing = await UserModel.findByUsername(username)
+            if (existing && existing.id !== parseInt(req.params.id)) {
+                return res.status(409).json({ message: "Nom d'utilisateur déjà pris" })
+            }
 
-            const { email, password, ...cleanData } = data
-
-            await UserModel.update(cleanData)
-
-            res.status(200)
-            res.json({
-                message: "User updated successfully"
-            })
-
+            await UserModel.update({ id: req.params.id, username })
+            res.json({ message: "Compte mis à jour" })
         } catch (error) {
-            res.status(500)
-            res.json({ message: "Internal Server Error" })
+            res.status(500).json({ message: "Internal Server Error" })
         }
     }
 
+    // DELETE /api/user/:id — supprimer un compte (admin)
     static async delete(req, res) {
-
         try {
-
-            const { id } = req.params
-
-            await UserModel.delete(id)
-
-            res.status(200)
-            res.json({ message: "User delete successfully" })
-
+            // Empêcher l'admin de se supprimer lui-même
+            if (parseInt(req.params.id) === req.user.id) {
+                return res.status(400).json({ message: "Vous ne pouvez pas supprimer votre propre compte" })
+            }
+            await UserModel.delete(req.params.id)
+            res.json({ message: "Compte supprimé" })
         } catch (error) {
-            res.status(500)
-            res.json({ message: "Internal Server Error" })
+            res.status(500).json({ message: "Internal Server Error" })
         }
     }
 }

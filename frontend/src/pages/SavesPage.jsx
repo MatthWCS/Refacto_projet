@@ -30,9 +30,7 @@ export const SavesPage = () => {
     )
 
     const handleLoad = (slot) => {
-        // On navigue vers /game — GamePage appellera /api/game/start
-        // qui rechargera depuis la save active en base (DirectSaveService)
-        navigate("/game")
+        navigate("/game", { state: { slot } })
         toast.info(`Chargement de l'emplacement ${slot.replace("_", " ")}...`)
     }
 
@@ -61,6 +59,7 @@ export const SavesPage = () => {
             setDeletingSlot(null)
         }
     }
+
 
     return (
         <main className="flex flex-col items-center justify-center min-h-screen gap-6 p-6">
@@ -101,8 +100,11 @@ export const SavesPage = () => {
 
                 {/* Navigation */}
                 <div className="flex justify-between text-sm pt-2">
+                    <Link to="/home" className="text-emerald-600 hover:text-emerald-400">
+                        ← Accueil
+                    </Link>
                     <Link to="/game" className="text-emerald-600 hover:text-emerald-400">
-                        ← Retour au jeu
+                        Retour au jeu
                     </Link>
                     <Link to="/account" className="text-emerald-600 hover:text-emerald-400">
                         Mon compte

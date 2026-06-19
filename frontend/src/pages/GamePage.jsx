@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react"
+import { Link, useLocation } from "react-router"
 import {
     useStartGameMutation,
     useSendActionMutation,
@@ -22,8 +23,8 @@ import {
     EndingScreen,
     InventoryBar
 } from "@components/game"
-import { Link } from "react-router"
 
+// ─── GamePage ─────────────────────────────────────────────────────────────────
 
 export const GamePage = () => {
     const [gameState, setGameState] = useState(null)
@@ -31,6 +32,9 @@ export const GamePage = () => {
     const [itemDefs, setItemDefs] = useState({})
     const [busy, setBusy] = useState(false)
     const contentRef = useRef(null)
+
+    const location = useLocation()
+    const slot = location.state?.slot ?? "autosave"
 
     const [gameStarted, setGameStarted] = useState(false)
     const [startGame] = useStartGameMutation()
@@ -61,7 +65,7 @@ export const GamePage = () => {
         const init = async () => {
             setBusy(true)
             try {
-                const res = await startGame().unwrap()
+                const res = await startGame({ slot }).unwrap()
                 if (!cancelled) {
                     applyState(res)
                     setGameStarted(true)
@@ -153,7 +157,7 @@ export const GamePage = () => {
         }
     }
 
-    // Chargement initial
+    // ── Chargement initial ────────────────────────────────────────────────────
     if (!gameState && busy) {
         return (
             <div className="flex items-center justify-center min-h-screen gap-3">
@@ -190,7 +194,8 @@ export const GamePage = () => {
                                    flex items-center justify-between sticky top-0 z-30
                                    bg-base-100/90 backdrop-blur-sm">
                     <Link to="/home"
-                        className="text-emerald-700 text-xs font-mono tracking-widest uppercase">
+                        className="text-emerald-700 text-xs font-mono tracking-widest
+                                   uppercase hover:text-emerald-500 transition-colors">
                         Les Bois Enchantés
                     </Link>
                     {busy && <Spinner size="xs" />}

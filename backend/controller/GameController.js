@@ -12,19 +12,20 @@ export class GameController {
     // Cycle de vie de la partie
     // -------------------------------------------------------
 
-    // POST /api/game/start
+    // POST /api/game/start — { slot? }
     static async start(req, res) {
         try {
-            const session = await GameSessionManager.getOrCreate(req.user.id);
+            const slot = req.body?.slot ?? "autosave"
+            const session = await GameSessionManager.getOrCreate(req.user.id, slot)
 
             if (!session.started) {
-                session.started = true;
-                await GameSessionManager.runStep(session, () => session.engine.start(0));
+                session.started = true
+                await GameSessionManager.runStep(session, () => session.engine.start(0, slot))
             }
 
-            res.json(session.ui.state);
+            res.json(session.ui.state)
         } catch (err) {
-            res.status(500).json({ error: "Impossible de demarrer la partie." });
+            res.status(500).json({ error: "Impossible de demarrer la partie." })
         }
     }
 
@@ -48,7 +49,7 @@ export class GameController {
             return res.status(404).json({ error: "Partie non demarree." });
         }
 
-        const { ui } = session;
+        const { ui, engine } = session;
         const { type, value } = req.body;
 
         if (!ui.state.pending || ui.state.pending.type !== type) {
@@ -66,6 +67,18 @@ export class GameController {
                     ui._settle("error", { message: "Decision invalide." });
                 }
             });
+
+            // Autosave après chaque action réussie (hors game over et états terminaux)
+            const pendingType = ui.state.pending?.type
+            const skipSave = ["game_over", "error", "closed"].includes(pendingType)
+            if (!ui.state.isGameOver && !skipSave) {
+                const slot = session.slot ?? "autosave"
+                const hero = engine.heroEngine.hero.serialize()
+                const paragraphId = engine.currentParagraphId
+                engine.saveService.save(hero, paragraphId, slot).catch(err =>
+                    session.logger.error("Autosave échouée :", err)
+                )
+            }
 
             res.json(ui.state);
         } catch (err) {

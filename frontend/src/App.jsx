@@ -11,16 +11,10 @@ import { useSelector } from "react-redux"
 import { Spinner } from "@ui"
 import { Navigate } from "react-router"
 
-// Route protégée admin — attend la fin de l'initialisation auth
+// Route protégée admin — App attend déjà la fin de useAuthInit
+// avant de rendre les Routes, donc le state auth est déjà stable ici.
 const AdminRoute = ({ children }) => {
-    const { isLoading } = useAuthInit()
     const user = useSelector(state => state.auth.user)
-
-    if (isLoading) return (
-        <div className="flex items-center justify-center min-h-screen">
-            <Spinner size="lg" />
-        </div>
-    )
     if (!user?.is_admin) return <Navigate to="/home" replace />
     return children
 }

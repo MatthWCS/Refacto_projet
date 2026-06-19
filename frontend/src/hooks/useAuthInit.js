@@ -1,24 +1,38 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
+import { useRefreshTokenMutation } from "@apiSlice"
 import { useDispatch } from "react-redux"
-import { useMeQuery } from "@apiSlice"
-import { setCredentials, logout } from "@slice/authSlice"
+import { logout } from "@slice/authSlice"
 
 /**
- * Au chargement de l'app, tente de restaurer la session via /auth/me
- * (cookie httpOnly). Met à jour authSlice en conséquence.
+ * Au chargement de l'app, échange le refresh_token (cookie httpOnly,
+ * seul élément persistant côté navigateur) contre un access token
+ * via /auth/refresh-token. L'access token résultant ne vit qu'en
+ * mémoire (store Redux) — perdu à chaque rechargement, d'où cet
+ * échange systématique au montage.
  */
 export const useAuthInit = () => {
     const dispatch = useDispatch()
-    const { data, isSuccess, isError, isLoading } = useMeQuery()
+    const [refreshToken] = useRefreshTokenMutation()
+    const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
-        if (isSuccess && data?.user) {
-            dispatch(setCredentials({ user: data.user }))
+        let cancelled = false
+
+        const init = async () => {
+            try {
+                // refreshToken.onQueryStarted dispatche déjà setCredentials
+                // en cas de succès, et logout() en cas d'échec.
+                await refreshToken().unwrap()
+            } catch {
+                if (!cancelled) dispatch(logout())
+            } finally {
+                if (!cancelled) setIsLoading(false)
+            }
         }
-        if (isError) {
-            dispatch(logout())
-        }
-    }, [isSuccess, isError, data, dispatch])
+
+        init()
+        return () => { cancelled = true }
+    }, [])
 
     return { isLoading }
 }

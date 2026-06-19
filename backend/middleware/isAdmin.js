@@ -8,18 +8,18 @@ const { JWT_SECRET_KEY } = process.env;
 
 // -------------------------------------------------------
 // isAdmin
-// Vérifie que l'utilisateur authentifié a is_admin = 1.
-// Peut être utilisé seul (vérifie aussi le token) ou après
-// isAuthenticated (req.user déjà disponible).
+// Vérifie le token JWT transmis via l'en-tête Authorization
+// (Bearer) et que l'utilisateur a is_admin = 1.
 // -------------------------------------------------------
 export const isAdmin = async (req, res, next) => {
     try {
-        const { token } = req.cookies;
+        const authHeader = req.headers.authorization;
 
-        if (!token) {
+        if (!authHeader?.startsWith("Bearer ")) {
             return res.status(401).json({ message: "No token provided" });
         }
 
+        const token = authHeader.slice(7);
         const decoded = jwt.verify(token, JWT_SECRET_KEY);
         const user = await UserModel.findById(decoded.user.id);
 

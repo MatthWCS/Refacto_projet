@@ -8,8 +8,13 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react"
 
 const baseQuery = fetchBaseQuery({
     baseUrl: "http://localhost:9000/api/user",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include"
+    credentials: "include",
+    prepareHeaders: (headers, { getState }) => {
+        const token = getState().auth.accessToken
+        if (token) headers.set("Authorization", `Bearer ${token}`)
+        headers.set("Content-Type", "application/json")
+        return headers
+    }
 })
 
 export const adminApiSlice = createApi({

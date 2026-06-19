@@ -2,7 +2,7 @@ import { useRegisterMutation } from "@apiSlice"
 import { Form } from "@ui"
 import { getErrorMessage, getSuccessMessage } from "@utils"
 import { toast } from "react-toastify"
-import { useNavigate } from "react-router"
+import { Link, useNavigate } from "react-router"
 
 export const RegisterForm = () => {
     const [register, { isLoading }] = useRegisterMutation()
@@ -24,16 +24,24 @@ export const RegisterForm = () => {
     }
 
     return (
-        <Form
-            title="Inscription"
-            resetOnSubmit
-            submitText={isLoading ? "Inscription..." : "S'inscrire"}
-            onSubmit={handleSubmit}
-            fields={[
-                { name: "username", label: "Nom d'utilisateur", type: "text" },
-                { name: "email", label: "Email", type: "email" },
-                { name: "password", label: "Mot de passe", type: "password" },
-            ]}
-        />
+        <div className="flex flex-col gap-4">
+            <Form
+                title="Inscription"
+                resetOnSubmit
+                submitText={isLoading ? "Inscription..." : "S'inscrire"}
+                onSubmit={handleSubmit}
+                fields={[
+                    { name: "username", label: "Nom d'utilisateur", type: "text" },
+                    { name: "email", label: "Email", type: "email" },
+                    { name: "password", label: "Mot de passe", type: "password" },
+                ]}
+            />
+            <p className="text-center text-sm text-base-content/50">
+                Déjà un compte ? {" "}
+                <Link to="/login" className="text-emerald-400 hover:text-emerald-300">
+                    Se connecter
+                </Link>
+            </p>
+        </div>
     )
 }

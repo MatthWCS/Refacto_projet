@@ -12,6 +12,7 @@ authRoutes.post("/login", AuthController.login)
 authRoutes.get("/logout", AuthController.logout)
 // on y ajoute une route "/me", , geree par la method me de AuthController en methode HTTP GET
 authRoutes.get("/me", isAuthenticated, AuthController.me)
-/* authRoutes.get("/me", isAuthenticated, AuthController.me)
-* on y ajoute une route "/refresh-token", , geree par la method refreshToken de AuthController en methode HTTP GET */
+// on y ajoute une route "/refresh-token", , geree par la method refreshToken de AuthController en methode HTTP GET
 authRoutes.get("/refresh-token", AuthController.refreshToken)
+// Modification du compte (username et/ou password) — utilisateur connecté uniquement
+authRoutes.patch("/account", isAuthenticated, AuthController.updateAccount)

@@ -14,7 +14,7 @@ export const router = Router();
 router.use("/api/auth", authRoutes);
 
 // Save — toutes les routes protégées par isAuthenticated (géré dans saveRoutes)
-router.use("/api/save", saveRoutes);
+router.use("/api/save", isAuthenticated, saveRoutes);
 
 // Game — moteur de jeu, toutes les routes protégées (géré dans gameRoutes)
 router.use("/api/game", gameRoutes);

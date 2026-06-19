@@ -43,6 +43,16 @@ export class AuthController {
                 return
             }
 
+            const isUsernameUsed = await UserModel.findByUsername(username)
+
+            if (isUsernameUsed) {
+                res.status(403)
+                res.json({
+                    message: "Username already in use"
+                })
+                return
+            }
+
             // on hash le mot de passe
             const hashedPassword = await bcrypt.hash(password, 10)
 
@@ -218,17 +228,6 @@ export class AuthController {
                 partitioned: false
             })
 
-            // const cookieOptions = {
-            //     sameSite: "Lax",
-            //     httpOnly: true,
-            //     secure: false,
-            //     maxAge: 0,
-            //     partitioned: false
-            // }
-
-            // res.clearCookie("token", cookieOptions)
-            // res.clearCookie("refresh_token", cookieOptions)
-
             res.status(200)
             res.json({ message: "Unauthenticated successfully" })
 
@@ -237,4 +236,47 @@ export class AuthController {
             res.json({ message: "Internal Server Error" })
         }
     }
+
+    // Permet à l'utilisateur connecté de modifier son username et/ou son password.
+    static async updateAccount(req, res) {
+        try {
+            const userId = req.user.id
+            const { username, password, currentPassword } = req.body
+
+            if (!username && !password) {
+                return res.status(400).json({
+                    message: "Au moins un champ à modifier est requis (username ou password)"
+                })
+            }
+
+            // Vérification du mot de passe actuel obligatoire pour toute modification
+            const user = await UserModel.findByEmail(req.user.email)
+            if (!user || !(await bcrypt.compare(currentPassword ?? "", user.password))) {
+                return res.status(401).json({ message: "Mot de passe actuel incorrect" })
+            }
+
+            const updateData = { id: userId }
+
+            // Vérification d'unicité du username
+            if (username && username !== user.username) {
+                const existing = await UserModel.findByUsername(username)
+                if (existing) {
+                    return res.status(409).json({ message: "Ce nom d'utilisateur est déjà pris" })
+                }
+                updateData.username = username
+            }
+
+            if (password) {
+                updateData.password = await bcrypt.hash(password, 10)
+            }
+
+            await UserModel.updateAccount(updateData)
+
+            res.status(200).json({ message: "Compte mis à jour avec succès" })
+
+        } catch (error) {
+            res.status(500).json({ message: "Internal Server Error" })
+        }
+    }
+
 }

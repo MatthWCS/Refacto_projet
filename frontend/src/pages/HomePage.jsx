@@ -3,6 +3,7 @@ import { useSelector } from "react-redux"
 import { useListSavesQuery } from "@apiSlice"
 import { Spinner } from "@ui"
 import { MenuCard } from "@components/home"
+import { LogoutButton } from "@shared"
 
 export const HomePage = () => {
     const navigate = useNavigate()
@@ -23,6 +24,8 @@ export const HomePage = () => {
 
     return (
         <main className="flex flex-col items-center justify-center min-h-screen gap-8 p-6">
+
+            <LogoutButton className="absolute top-4 right-4" />
 
             <div className="text-center flex flex-col gap-2">
                 <h1 className="text-4xl font-semibold text-emerald-300 tracking-wide">
@@ -83,11 +86,13 @@ export const HomePage = () => {
                 <p className="text-base-content/20 text-xs">
                     Un livre dont vous êtes le héros
                 </p>
-                {user?.is_admin && (
+                {user?.is_admin ? (
                     <Link to="/admin"
                         className="text-xs text-emerald-800 hover:text-emerald-600">
                         Dashboard admin
                     </Link>
+                ) : (
+                    <></>
                 )}
             </div>
         </main>

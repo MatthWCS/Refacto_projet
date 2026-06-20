@@ -1,26 +1,33 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react"
 
+// -------------------------------------------------------
 // gameApiSlice
 // Tous les endpoints du moteur de jeu — contrat JSON
 // validé avec le backend (WebUI + GameController).
 //
-// Principe : un seul objet `state` est renvoyé par chaque endpoint ;
-// les composants le lisent via state.pending.type pour décider quoi afficher.
+// Principe : un seul objet `state` est renvoyé par chaque
+// endpoint ; les composants le lisent via state.pending.type
+// pour décider quoi afficher.
+// -------------------------------------------------------
 
 const baseQuery = fetchBaseQuery({
     baseUrl: "http://localhost:9000/api/game",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include"
+    credentials: "include",
+    prepareHeaders: (headers, { getState }) => {
+        const token = getState().auth.accessToken
+        if (token) headers.set("Authorization", `Bearer ${token}`)
+        headers.set("Content-Type", "application/json")
+        return headers
+    }
 })
 
-/**
- * Endpoints du moteur de jeu 
- */
 export const gameApiSlice = createApi({
     reducerPath: "gameApi",
     baseQuery,
-    tagTypes: ["Hero", "Paragraph", "Inventory", "Combat"],
+    tagTypes: ["GameState", "Inventory", "Trade"],
     endpoints: (build) => ({
+
+        // ---- Cycle de vie ----
 
         /** Démarre ou reprend la partie — renvoie le state courant */
         startGame: build.mutation({
@@ -36,7 +43,6 @@ export const gameApiSlice = createApi({
             query: () => "/state",
             providesTags: ["GameState"]
         }),
-
 
         // ---- Décision du joueur (résout le pending courant) ----
         /**
@@ -134,5 +140,5 @@ export const {
     useEquipItemMutation,
     useUnequipItemMutation,
     useGetTradesQuery,
-    useExecuteTradeMutation,
+    useExecuteTradeMutation
 } = gameApiSlice

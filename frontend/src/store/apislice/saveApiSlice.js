@@ -1,5 +1,6 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react"
 
+// -------------------------------------------------------
 // saveApiSlice
 // Endpoints de gestion des sauvegardes et du compte.
 //
@@ -8,12 +9,20 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react"
 //   POST   /api/save          — sauvegarde la session en cours
 //   GET    /api/save/load     — charge un slot (?slot=xxx)
 //   DELETE /api/save/:slot    — supprime un slot
-
+//
+// Compte : /api/auth/account
+//   PATCH  /api/auth/account  — modifie username et/ou password
+// -------------------------------------------------------
 
 const baseQuery = fetchBaseQuery({
-    baseUrl: "http://localhost:9000/api/save",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include"
+    baseUrl: "http://localhost:9000/api",
+    credentials: "include",
+    prepareHeaders: (headers, { getState }) => {
+        const token = getState().auth.accessToken
+        if (token) headers.set("Authorization", `Bearer ${token}`)
+        headers.set("Content-Type", "application/json")
+        return headers
+    }
 })
 
 export const saveApiSlice = createApi({
@@ -22,7 +31,7 @@ export const saveApiSlice = createApi({
     tagTypes: ["Saves"],
     endpoints: (build) => ({
 
-        // Sauvegardes
+        // ---- Sauvegardes ----
 
         listSaves: build.query({
             query: () => "/save",
@@ -50,6 +59,15 @@ export const saveApiSlice = createApi({
             invalidatesTags: ["Saves"]
         }),
 
+        // ---- Compte ----
+
+        updateAccount: build.mutation({
+            query: (body) => ({
+                url: "/auth/account",
+                method: "PATCH",
+                body  // { currentPassword, username?, password? }
+            })
+        })
     })
 })
 
@@ -58,4 +76,5 @@ export const {
     useSaveGameMutation,
     useLoadSaveQuery,
     useDeleteSaveMutation,
+    useUpdateAccountMutation
 } = saveApiSlice

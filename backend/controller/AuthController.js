@@ -43,16 +43,6 @@ export class AuthController {
                 return
             }
 
-            const isUsernameUsed = await UserModel.findByUsername(username)
-
-            if (isUsernameUsed) {
-                res.status(403)
-                res.json({
-                    message: "Username already in use"
-                })
-                return
-            }
-
             // on hash le mot de passe
             const hashedPassword = await bcrypt.hash(password, 10)
 
@@ -120,18 +110,10 @@ export class AuthController {
                     expiresIn: 3600 * 24 * 7
                 }
             )
-            // On demande a la reponse de transmettre le token sous forme de cookie
-            // qui ne sera transmis qu'avec les requetes HTTP (httpOnly est true)
-            // qui sera transmis meme sans SSL/TLS (https)
-            // dont l'age maximum est 1h apres sa creation
-            res.cookie("token", token, {
-                sameSite: "Lax",
-                httpOnly: true,
-                secure: false,
-                maxAge: 7200 * 1000,
-                partitioned: false
-            })
-
+            // refresh_token seul reste en cookie httpOnly (longue durée).
+            // L'access token (courte durée) est renvoyé dans le corps JSON
+            // et vit uniquement en mémoire côté client (store Redux) —
+            // jamais en cookie, pour réduire la surface d'attaque CSRF.
             res.cookie("refresh_token", refreshtoken, {
                 sameSite: "Lax",
                 httpOnly: true,
@@ -140,8 +122,11 @@ export class AuthController {
                 partitioned: false
             })
             res.status(200)
-            // Envoie d'une reponse qui contient un message et le user complet (sans password)
-            res.json({ message: "Authenticated successfuly !", user: publicUser })
+            res.json({
+                message: "Authenticated successfuly !",
+                user: publicUser,
+                accessToken: token
+            })
 
         } catch (error) {
             res.status(500)
@@ -159,8 +144,21 @@ export class AuthController {
                 // on verifie si le refresh token est valide
                 const decoded = jwt.verify(refresh_token, jwtRefreshSecret)
 
+                // Recharge l'utilisateur complet (avec email) depuis la BDD —
+                // le payload du refresh token ne contient pas l'email
+                // (cleanUser allégé), et peut être obsolète si le compte
+                // a été modifié depuis (username, is_admin...).
+                const user = await UserModel.findById(decoded.user.id)
+                if (!user) {
+                    res.status(401)
+                    res.json({ message: "Utilisateur introuvable" })
+                    return
+                }
+
+                const { email: _email, ...cleanUser } = user
+
                 const token = jwt.sign(
-                    { user: decoded.user }, // payload du token
+                    { user: cleanUser }, // payload du token
                     jwtSecret, // cle secrete qui permet de signer le token
                     { // Header du token
                         algorithm: jwtAlgo,
@@ -168,18 +166,11 @@ export class AuthController {
                     }
                 )
 
-                res.cookie("token", token, {
-                    sameSite: "Lax",
-                    httpOnly: true,
-                    secure: false,
-                    maxAge: 7200 * 1000,
-                    partitioned: false
-                })
-
                 res.status(200)
-                // Envoie d'une reponse qui contient un message
                 res.json({
-                    message: "Token Refresh"
+                    message: "Token Refresh",
+                    user,
+                    accessToken: token
                 })
 
             } catch (error) {
@@ -197,7 +188,14 @@ export class AuthController {
     static async me(req, res) {
         try {
 
-            const { token } = req.cookies
+            const authHeader = req.headers.authorization
+            if (!authHeader?.startsWith("Bearer ")) {
+                res.status(401)
+                res.json({ message: "No token provided" })
+                return
+            }
+
+            const token = authHeader.slice(7)
             const decoded = jwt.verify(token, jwtSecret)
             const user = await UserModel.findById(decoded.user.id)
 
@@ -205,8 +203,8 @@ export class AuthController {
             res.json({ user })
 
         } catch (error) {
-            res.status(500)
-            res.json({ message: "Internal Server Error" })
+            res.status(401)
+            res.json({ message: "Invalid token" })
         }
     }
 
@@ -214,13 +212,6 @@ export class AuthController {
 
         try {
 
-            res.cookie("token", "", {
-                sameSite: "Lax",
-                httpOnly: true,
-                secure: false,
-                maxAge: 0,
-                partitioned: false
-            })
             res.cookie("refresh_token", "", {
                 sameSite: "Lax",
                 httpOnly: true,
@@ -238,6 +229,7 @@ export class AuthController {
         }
     }
 
+    // PATCH /api/auth/account
     // Permet à l'utilisateur connecté de modifier son username et/ou son password.
     static async updateAccount(req, res) {
         try {
@@ -251,7 +243,10 @@ export class AuthController {
             }
 
             // Vérification du mot de passe actuel obligatoire pour toute modification
-            const user = await UserModel.findByEmail(req.user.email)
+            // (req.user vient du JWT allégé, sans password ni email — on recharge
+            // l'utilisateur complet depuis la BDD pour la vérification)
+            const userPublic = await UserModel.findById(userId)
+            const user = userPublic ? await UserModel.findByEmail(userPublic.email) : null
             if (!user || !(await bcrypt.compare(currentPassword ?? "", user.password))) {
                 return res.status(401).json({ message: "Mot de passe actuel incorrect" })
             }
@@ -279,5 +274,4 @@ export class AuthController {
             res.status(500).json({ message: "Internal Server Error" })
         }
     }
-
 }

@@ -185,6 +185,7 @@ export class GameEngine {
         if (result.next) {
             if (result.content) {
                 this.ui.renderParagraph(result, this.heroEngine.hero);
+                await this.ui.waitForInput?.();
             }
             if (result.testResult) {
                 this.ui.renderTestResult?.(result.testResult);

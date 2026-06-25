@@ -196,7 +196,7 @@ export const GamePage = () => {
                     <Link to="/home"
                         className="text-emerald-700 text-xs font-mono tracking-widest
                                    uppercase hover:text-emerald-500 transition-colors">
-                        Les Bois Enchantés
+                        Faery ~ Interlude Sylvain ~
                     </Link>
                     {busy && <Spinner size="xs" />}
                 </header>

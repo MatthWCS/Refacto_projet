@@ -125,6 +125,11 @@ export class GameEngine {
             logger: this.logger
         });
 
+        this.paragraphEngine.onBeforeCombat = async ({ paragraphId, content }) => {
+            this.ui.renderParagraph({ paragraphId, content }, this.heroEngine.hero);
+            await this.ui.waitForInput?.();
+        };
+
         this.logger.info("Engines initialisés.");
     }
 
@@ -185,7 +190,6 @@ export class GameEngine {
         if (result.next) {
             if (result.content) {
                 this.ui.renderParagraph(result, this.heroEngine.hero);
-                await this.ui.waitForInput?.();
             }
             if (result.testResult) {
                 this.ui.renderTestResult?.(result.testResult);

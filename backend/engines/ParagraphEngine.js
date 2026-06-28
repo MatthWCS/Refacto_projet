@@ -140,6 +140,12 @@ export class ParagraphEngine {
                 const testResult = await this._resolvePreCombatTest(test);
                 preCombatResults.push(testResult);
             }
+            // Suspendre avant le combat si le paragraphe
+            // a du contenu narratif
+            if (content && this.onBeforeCombat) {
+                await this.onBeforeCombat({ paragraphId, content });
+            }
+
             return this._resolveCombatParagraph(content, encounters, items, paragraphId, preCombatResults);
         }
 
@@ -369,6 +375,7 @@ export class ParagraphEngine {
             return {
                 paragraphId,
                 content,
+                narrativeContent: content,
                 items,
                 log: combatResult.log,
                 outcome: combatResult.outcome,
@@ -385,6 +392,7 @@ export class ParagraphEngine {
             return {
                 paragraphId,
                 content,
+                narrativeContent: content,
                 items: [],
                 log: combatResult.log,
                 outcome: combatResult.outcome,
@@ -400,6 +408,7 @@ export class ParagraphEngine {
         return {
             paragraphId,
             content,
+            narrativeContent: content,
             items,                     // butin récupéré après victoire
             log: combatResult.log,
             outcome: combatResult.outcome,

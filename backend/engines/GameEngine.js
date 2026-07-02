@@ -171,6 +171,7 @@ export class GameEngine {
         // Game Over (mort en combat)
         if (result.gameOver) {
             this.isGameOver = true;
+            if (result.content) this.ui.renderParagraph(result, this.heroEngine.hero);
             if (result.log) this.ui.renderCombatResult?.(result);
             this.ui.renderGameOver(this.heroEngine.hero);
             return;

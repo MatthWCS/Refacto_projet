@@ -96,6 +96,19 @@ export class ParagraphEngine {
         // 3. Effets du paragraphe
         this.effectEngine.applyEffects(effects);
 
+        // 3.1 vérification endurance après effets
+        //    avant tout test ou navigation
+        if (this.heroEngine.hero.endurance <= 0) {
+            return {
+                paragraphId,
+                content,
+                items,
+                effects,
+                choices: [],
+                gameOver: true
+            };
+        }
+
         // 4. Tests normaux → redirection
         //    Tests pré-combat → résolus avant le combat ou comme test à effets
         const normalTests = tests.filter(t => !t.pre_combat);
